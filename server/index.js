@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dist = path.join(__dirname, '..', 'dist')
 
+// Load a local .env for development; production uses real env vars on the host.
+try { process.loadEnvFile(path.join(__dirname, '..', '.env')) } catch { /* no .env present */ }
+
 const PORT = process.env.PORT || 3001
 const secret = process.env.STRIPE_SECRET_KEY
 const stripe = secret ? new Stripe(secret) : null
