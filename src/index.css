@@ -79,11 +79,17 @@ body::after {
   border-color: rgba(240,236,228,0.25) !important;
 }
 
-/* ─── Auth page (scoped) ─────────────────────────────────────────── */
+/* ─── Auth page (scoped, dark glass) ─────────────────────────────── */
 .auth-scope { cursor: auto; }
-.auth-scope input::placeholder { color: #bdb098; }
-.auth-scope a { color: #b9673f; text-decoration: none; }
-.auth-scope a:hover { color: #a05531; text-decoration: underline; }
+.auth-scope input::placeholder { color: rgba(240,236,228,0.3); }
+.auth-scope a { color: #d4af7a; text-decoration: none; }
+.auth-scope a:hover { color: #f0ece4; }
+.auth-scope input:-webkit-autofill,
+.auth-scope input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f0ece4;
+  -webkit-box-shadow: 0 0 0 1000px rgba(20,19,17,0.9) inset;
+  caret-color: #f0ece4;
+}
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(10px); }

@@ -1,53 +1,59 @@
-import { useState, useEffect, type CSSProperties } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from 'react'
 import { navigate } from './router'
 
-// ─── Design tokens (from the mockup) ────────────────────────────────────────────
-const ACCENT = '#b9673f'
-const RADIUS = 14
-const SHOW_GOOGLE = true
-const OK_BORDER = '#e5dccd'
-const ERR_BORDER = '#cf6b52'
+// ─── Palette ─────────────────────────────────────────────────────────────────
+const PAPER = '#f0ece4'
+const GOLD = '#c9b99a'
+const GOLD_BRIGHT = '#d4af7a'
+const ERR = '#e0806a'
 const HERO_IMG =
-  'https://images.unsplash.com/photo-1445205170230-053b83016050?w=900&h=600&fit=crop&auto=format&q=90'
+  'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=1600&h=1200&fit=crop&auto=format&q=80'
 
-// ─── Validators ─────────────────────────────────────────────────────────────────
+// ─── Validators ─────────────────────────────────────────────────────────────
 const vEmail = (v: string) =>
   /^\S+@\S+\.\S+$/.test(v) ? '' : v ? 'Enter a valid email address' : 'Email is required'
 const vPw = (v: string) =>
   v.length >= 8 ? '' : v ? 'Password must be at least 8 characters' : 'Password is required'
 
-// ─── Shared styles ──────────────────────────────────────────────────────────────
+// ─── Shared styles ───────────────────────────────────────────────────────────
 const labelStyle: CSSProperties = {
-  display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em',
-  textTransform: 'uppercase', color: '#8a7c6b', marginBottom: 6,
+  display: 'block', fontFamily: "'DM Mono',monospace", fontSize: 10,
+  letterSpacing: '0.16em', textTransform: 'uppercase', color: GOLD, marginBottom: 7,
 }
-const errStyle: CSSProperties = { minHeight: 18, fontSize: 12.5, color: '#b3452f', paddingTop: 4 }
+const errStyle: CSSProperties = { minHeight: 16, fontSize: 12, color: ERR, paddingTop: 5, fontFamily: "'DM Sans',sans-serif" }
 
-function field(border: string, focused: boolean, extra?: CSSProperties): CSSProperties {
+function field(hasErr: boolean, focused: boolean, extra?: CSSProperties): CSSProperties {
   return {
-    width: '100%', boxSizing: 'border-box', padding: '14px 16px',
-    font: "500 16px 'Karla',sans-serif", color: '#33291f',
-    background: focused ? '#fffdf8' : '#fbf7ee',
-    border: `1.5px solid ${focused ? ACCENT : border}`,
-    borderRadius: RADIUS, outline: 'none', ...extra,
+    width: '100%', boxSizing: 'border-box', padding: '13px 15px',
+    fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: PAPER,
+    background: focused ? 'rgba(240,236,228,0.08)' : 'rgba(240,236,228,0.04)',
+    border: `1px solid ${hasErr ? 'rgba(224,128,106,0.6)' : focused ? 'rgba(212,175,122,0.6)' : 'rgba(240,236,228,0.14)'}`,
+    outline: 'none', transition: 'border-color 0.2s, background 0.2s', ...extra,
   }
 }
 
-const primaryBtn: CSSProperties = {
-  width: '100%', padding: 15, border: 'none', borderRadius: RADIUS,
-  background: ACCENT, color: '#fffdf8', font: "700 16px 'Karla',sans-serif",
-  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  gap: 10, marginTop: 6,
+const primaryStyle: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%',
+  fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase',
+  color: '#060606', background: PAPER, border: 'none', padding: 15, cursor: 'pointer', marginTop: 8,
+  transition: 'background 0.25s',
 }
-const googleBtn: CSSProperties = {
-  width: '100%', padding: 13, border: '1.5px solid #e5dccd', borderRadius: RADIUS,
-  background: '#fffdf8', color: '#33291f', font: "600 15px 'Karla',sans-serif",
-  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+const googleStyle: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%',
+  fontFamily: "'DM Mono',monospace", fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase',
+  color: PAPER, background: 'transparent', border: '1px solid rgba(240,236,228,0.18)', padding: 13,
+  cursor: 'pointer', transition: 'background 0.25s, border-color 0.25s',
 }
+const pwToggleStyle: CSSProperties = {
+  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none',
+  background: 'none', fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: '0.08em',
+  textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', cursor: 'pointer', padding: '8px 10px',
+}
+const linkStyle: CSSProperties = { fontWeight: 600, color: GOLD_BRIGHT, cursor: 'pointer' }
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48">
+    <svg width="17" height="17" viewBox="0 0 48 48">
       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
@@ -55,20 +61,20 @@ function GoogleIcon() {
     </svg>
   )
 }
-
 function Divider() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#bdb098', fontSize: 12.5, letterSpacing: '0.08em' }}>
-      <span style={{ flex: 1, height: 1, background: '#e5dccd' }} />OR<span style={{ flex: 1, height: 1, background: '#e5dccd' }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(240,236,228,0.35)', fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: '0.14em' }}>
+      <span style={{ flex: 1, height: 1, background: 'rgba(240,236,228,0.12)' }} />OR<span style={{ flex: 1, height: 1, background: 'rgba(240,236,228,0.12)' }} />
     </div>
   )
 }
+function Spinner() {
+  return <span style={{ width: 15, height: 15, border: '2px solid rgba(6,6,6,0.25)', borderTopColor: '#060606', borderRadius: '50%', animation: 'spin .7s linear infinite', flex: 'none' }} />
+}
 
-// ─── Component ───────────────────────────────────────────────────────────────────
-type Screen = 'login' | 'signup'
-
+// ─── Component ───────────────────────────────────────────────────────────────
 export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signup' }) {
-  const [screen, setScreen] = useState<Screen>(initial)
+  const [screen, setScreen] = useState<'login' | 'signup'>(initial)
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState('')
   const [resetMsg, setResetMsg] = useState('')
@@ -90,24 +96,32 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
   const [sTouched, setSTouched] = useState<Record<string, boolean>>({})
   const [sSub, setSSub] = useState(false)
 
-  // Keep the visible screen in sync with the URL (/login ↔ /signup).
+  // sliding-panel height measurement
+  const loginRef = useRef<HTMLDivElement>(null)
+  const signupRef = useRef<HTMLDivElement>(null)
+  const [h, setH] = useState<{ login: number; signup: number }>({ login: 0, signup: 0 })
+
   useEffect(() => { setScreen(initial) }, [initial])
 
-  // Restore the normal cursor (the landing page hides it globally).
   useEffect(() => {
     const prev = document.body.style.cursor
     document.body.style.cursor = 'auto'
     return () => { document.body.style.cursor = prev }
   }, [])
 
-  // After a brief pause, send the authenticated customer to the shop.
-  const finish = () => {
-    setTimeout(() => navigate('/shop'), 1100)
-  }
-  const touch = (setter: typeof setLTouched, f: string) => () =>
-    setter(t => ({ ...t, [f]: true }))
+  useLayoutEffect(() => {
+    const measure = () => setH({ login: loginRef.current?.offsetHeight || 0, signup: signupRef.current?.offsetHeight || 0 })
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (loginRef.current) ro.observe(loginRef.current)
+    if (signupRef.current) ro.observe(signupRef.current)
+    return () => ro.disconnect()
+  }, [])
 
-  // Derived validation
+  // After a brief pause, send the authenticated customer to the shop.
+  const finish = () => { setTimeout(() => navigate('/shop'), 1100) }
+  const touch = (setter: typeof setLTouched, f: string) => () => setter(t => ({ ...t, [f]: true }))
+
   const lShow = (f: string) => lTouched[f] || lSub
   const sShow = (f: string) => sTouched[f] || sSub
   const lEmailErr = lShow('email') ? vEmail(lEmail) : ''
@@ -115,126 +129,122 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
   const sNameErr = sShow('name') ? (sName.trim() ? '' : 'Name is required') : ''
   const sEmailErr = sShow('email') ? vEmail(sEmail) : ''
   const sPwErr = sShow('pw') ? vPw(sPw) : ''
-  const sCpwErr = sShow('cpw')
-    ? sCpw === sPw && sCpw ? '' : sCpw ? 'Passwords do not match' : 'Please confirm your password'
-    : ''
+  const sCpwErr = sShow('cpw') ? (sCpw === sPw && sCpw ? '' : sCpw ? 'Passwords do not match' : 'Please confirm your password') : ''
   const sTermsErr = sSub && !sTerms ? 'Please accept the terms to continue' : ''
 
   const submitLogin = () => {
     setLSub(true)
-    if (!vEmail(lEmail) && !vPw(lPw)) {
-      setLoading(true); setResetMsg('')
-      finish()
-    }
+    if (!vEmail(lEmail) && !vPw(lPw)) { setLoading(true); setResetMsg(''); finish() }
   }
   const submitSignup = () => {
     setSSub(true)
     const ok = sName.trim() && !vEmail(sEmail) && !vPw(sPw) && sCpw === sPw && sCpw && sTerms
     if (ok) { setLoading(true); finish() }
   }
-  const googleSignIn = () => {
-    setLoading(true)
-    finish()
-  }
+  const googleSignIn = () => { setLoading(true); finish() }
   const forgotPw = (e: React.MouseEvent) => {
     e.preventDefault()
     setResetMsg(vEmail(lEmail) === ''
       ? 'Reset link sent to ' + lEmail + '. Check your inbox.'
       : 'Enter your email above first — then we’ll send you a reset link.')
   }
-  const spinner = (
-    <span style={{ width: 16, height: 16, border: '2px solid rgba(255,253,248,0.4)', borderTopColor: '#fffdf8', borderRadius: '50%', animation: 'spin .7s linear infinite', flex: 'none' }} />
-  )
-  const linkStyle: CSSProperties = { fontWeight: 700, color: ACCENT }
+
+  const go = (m: 'login' | 'signup') => {
+    setResetMsg('')
+    if (m === 'login') setSSub(false); else setLSub(false)
+    navigate('/' + m)
+  }
+
+  const activeH = screen === 'login' ? h.login : h.signup
+  const primaryHover = { onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = GOLD), onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = PAPER) }
+  const googleHover = { onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'rgba(240,236,228,0.06)'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.3)' }, onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.18)' } }
 
   return (
-    <div className="auth-scope" style={{ minHeight: '100vh', background: '#f6efe4', display: 'flex', justifyContent: 'center', fontFamily: "'Karla',sans-serif", color: '#33291f' }}>
-      <div style={{ width: '100%', maxWidth: 430, background: '#fffdf8', display: 'flex', flexDirection: 'column', boxShadow: '0 0 44px rgba(51,41,31,0.07)' }}>
+    <div className="auth-scope" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative', overflow: 'hidden', background: '#060606', fontFamily: "'DM Sans',sans-serif" }}>
+      {/* Backdrop */}
+      <img src={HERO_IMG} aria-hidden="true" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 25%', filter: 'brightness(0.28) saturate(0.7)', zIndex: 0 }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 35%, rgba(6,6,6,0.35), rgba(6,6,6,0.9))', zIndex: 1 }} />
 
-        {/* Hero photo */}
-        <div style={{ position: 'relative', height: 238, flex: 'none', background: '#ece2cf' }}>
-          <img src={HERO_IMG} alt="VÊTU new collection lifestyle" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          <a href="/" onClick={e => { e.preventDefault(); navigate('/') }}
-            style={{ position: 'absolute', top: 16, left: 16, background: 'rgba(255,253,248,0.9)', color: '#33291f', fontSize: 12.5, fontWeight: 700, letterSpacing: '0.04em', padding: '7px 13px', borderRadius: 999, textDecoration: 'none' }}>
-            ← Back to VÊTU
-          </a>
+      <a href="/" onClick={e => { e.preventDefault(); navigate('/') }} className="font-mono-dm"
+        style={{ position: 'absolute', top: 28, left: 28, zIndex: 3, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.6)', textDecoration: 'none' }}>← Back to VÊTU</a>
+
+      {/* Glass card */}
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 428, background: 'rgba(12,11,10,0.55)', backdropFilter: 'blur(26px) saturate(130%)', WebkitBackdropFilter: 'blur(26px) saturate(130%)', border: '1px solid rgba(240,236,228,0.12)', boxShadow: '0 30px 80px rgba(0,0,0,0.55)', padding: '38px 32px' }}>
+        {/* Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 26 }}>
+          <span className="font-display" style={{ fontSize: 25, fontWeight: 700, letterSpacing: '0.28em', color: PAPER }}>VÊTU</span>
+          <p className="font-mono-dm" style={{ fontSize: 9.5, letterSpacing: '0.22em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase', margin: '11px 0 0' }}>
+            {screen === 'login' ? 'Welcome back' : 'Join the house'}
+          </p>
         </div>
 
-        <div style={{ position: 'relative', marginTop: -26, flex: 1, background: '#fffdf8', borderRadius: '26px 26px 0 0', boxShadow: '0 -10px 30px rgba(51,41,31,0.10)', padding: '28px 26px 44px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ textAlign: 'center', fontFamily: "'Source Serif 4',serif", fontSize: 21, fontWeight: 600, letterSpacing: '0.22em', marginBottom: 22 }}>VÊTU</div>
+        {/* Sliding toggle */}
+        <div style={{ position: 'relative', display: 'flex', background: 'rgba(240,236,228,0.05)', border: '1px solid rgba(240,236,228,0.1)', padding: 4, marginBottom: 26 }}>
+          <div style={{ position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc(50% - 4px)', background: PAPER, transform: screen === 'signup' ? 'translateX(100%)' : 'translateX(0)', transition: 'transform 0.45s cubic-bezier(0.16,1,0.3,1)' }} />
+          {(['login', 'signup'] as const).map(m => (
+            <button key={m} onClick={() => go(m)} className="font-mono-dm"
+              style={{ position: 'relative', zIndex: 1, flex: 1, background: 'none', border: 'none', padding: '11px 0', cursor: 'pointer', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: screen === m ? '#060606' : 'rgba(240,236,228,0.55)', transition: 'color 0.3s' }}>
+              {m === 'login' ? 'Sign in' : 'Create account'}
+            </button>
+          ))}
+        </div>
 
-          {/* ── Login ── */}
-          {screen === 'login' && (
-            <div style={{ animation: 'rise .35s ease', display: 'flex', flexDirection: 'column' }}>
-              <h1 style={{ fontFamily: "'Source Serif 4',serif", fontSize: 27, fontWeight: 600, margin: '0 0 6px' }}>Welcome back</h1>
-              <p style={{ margin: '0 0 22px', fontSize: 14.5, lineHeight: 1.5, color: '#8a7c6b' }}>Sign in to see your orders and saved items.</p>
+        {/* Sliding track */}
+        <div style={{ overflow: 'hidden', height: activeH ? activeH : 'auto', transition: 'height 0.5s cubic-bezier(0.16,1,0.3,1)' }}>
+          <div style={{ display: 'flex', width: '200%', transform: screen === 'signup' ? 'translateX(-50%)' : 'translateX(0)', transition: 'transform 0.5s cubic-bezier(0.16,1,0.3,1)' }}>
 
-              {SHOW_GOOGLE && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 18 }}>
-                  <button onClick={googleSignIn} style={googleBtn}><GoogleIcon />Continue with Google</button>
-                  <Divider />
-                </div>
-              )}
+            {/* ── Login panel ── */}
+            <div style={{ width: '50%' }}>
+              <div ref={loginRef} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={googleSignIn} style={googleStyle} {...googleHover}><GoogleIcon />Continue with Google</button>
+                <div style={{ margin: '10px 0 4px' }}><Divider /></div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
                   <label style={labelStyle}>Email</label>
                   <input type="email" value={lEmail} placeholder="you@example.com"
                     onChange={e => { setLEmail(e.target.value); if (resetMsg) setResetMsg('') }}
                     onFocus={() => setFocused('lEmail')} onBlur={() => { setFocused(''); touch(setLTouched, 'email')() }}
-                    style={field(lEmailErr ? ERR_BORDER : OK_BORDER, focused === 'lEmail')} />
+                    style={field(!!lEmailErr, focused === 'lEmail')} />
                   <div style={errStyle}>{lEmailErr}</div>
                 </div>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
                     <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
-                    <a href="#" onClick={forgotPw} style={{ fontSize: 13, fontWeight: 600, color: ACCENT }}>Forgot password?</a>
+                    <a href="#" onClick={forgotPw} style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: '0.06em', color: GOLD_BRIGHT }}>Forgot?</a>
                   </div>
                   <div style={{ position: 'relative' }}>
                     <input type={lShowPw ? 'text' : 'password'} value={lPw} placeholder="Your password"
                       onChange={e => setLPw(e.target.value)}
                       onFocus={() => setFocused('lPw')} onBlur={() => { setFocused(''); touch(setLTouched, 'pw')() }}
-                      style={field(lPwErr ? ERR_BORDER : OK_BORDER, focused === 'lPw', { padding: '14px 70px 14px 16px' })} />
-                    <button onClick={() => setLShowPw(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', font: "600 13px 'Karla',sans-serif", color: '#8a7c6b', cursor: 'pointer', padding: '8px 10px' }}>{lShowPw ? 'Hide' : 'Show'}</button>
+                      style={field(!!lPwErr, focused === 'lPw', { paddingRight: 66 })} />
+                    <button onClick={() => setLShowPw(v => !v)} style={pwToggleStyle}>{lShowPw ? 'Hide' : 'Show'}</button>
                   </div>
                   <div style={errStyle}>{lPwErr}</div>
                 </div>
+
+                {resetMsg && <div style={{ background: 'rgba(201,185,154,0.1)', border: '1px solid rgba(201,185,154,0.2)', padding: '10px 13px', fontSize: 13, lineHeight: 1.45, color: GOLD, marginBottom: 6 }}>{resetMsg}</div>}
+
+                <button onClick={submitLogin} disabled={loading} style={primaryStyle} {...primaryHover}>
+                  {loading ? <><Spinner />Signing in…</> : 'Sign in'}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(240,236,228,0.5)', margin: '18px 0 0' }}>
+                  New here? <a onClick={() => go('signup')} style={linkStyle}>Create an account</a>
+                </p>
               </div>
-
-              {resetMsg && (
-                <div style={{ background: '#f3ead9', borderRadius: 12, padding: '11px 14px', fontSize: 13.5, lineHeight: 1.45, color: '#6d5c46', marginBottom: 14 }}>{resetMsg}</div>
-              )}
-
-              <button onClick={submitLogin} disabled={loading} style={primaryBtn}>
-                {loading ? <>{spinner}<span>Signing in…</span></> : <span>Sign in</span>}
-              </button>
-
-              <p style={{ textAlign: 'center', fontSize: 14.5, color: '#8a7c6b', margin: '24px 0 0' }}>
-                New here? <a href="/signup" onClick={e => { e.preventDefault(); setLSub(false); setResetMsg(''); navigate('/signup') }} style={linkStyle}>Create an account</a>
-              </p>
             </div>
-          )}
 
-          {/* ── Signup ── */}
-          {screen === 'signup' && (
-            <div style={{ animation: 'rise .35s ease', display: 'flex', flexDirection: 'column' }}>
-              <h1 style={{ fontFamily: "'Source Serif 4',serif", fontSize: 27, fontWeight: 600, margin: '0 0 6px' }}>Create your account</h1>
-              <p style={{ margin: '0 0 22px', fontSize: 14.5, lineHeight: 1.5, color: '#8a7c6b' }}>Faster checkout, order tracking, and saved favorites.</p>
+            {/* ── Signup panel ── */}
+            <div style={{ width: '50%' }}>
+              <div ref={signupRef} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={googleSignIn} style={googleStyle} {...googleHover}><GoogleIcon />Sign up with Google</button>
+                <div style={{ margin: '10px 0 4px' }}><Divider /></div>
 
-              {SHOW_GOOGLE && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 18 }}>
-                  <button onClick={googleSignIn} style={googleBtn}><GoogleIcon />Sign up with Google</button>
-                  <Divider />
-                </div>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
                   <label style={labelStyle}>Full name</label>
                   <input type="text" value={sName} placeholder="Jane Fuller"
                     onChange={e => setSName(e.target.value)}
                     onFocus={() => setFocused('sName')} onBlur={() => { setFocused(''); touch(setSTouched, 'name')() }}
-                    style={field(sNameErr ? ERR_BORDER : OK_BORDER, focused === 'sName')} />
+                    style={field(!!sNameErr, focused === 'sName')} />
                   <div style={errStyle}>{sNameErr}</div>
                 </div>
                 <div>
@@ -242,7 +252,7 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
                   <input type="email" value={sEmail} placeholder="you@example.com"
                     onChange={e => setSEmail(e.target.value)}
                     onFocus={() => setFocused('sEmail')} onBlur={() => { setFocused(''); touch(setSTouched, 'email')() }}
-                    style={field(sEmailErr ? ERR_BORDER : OK_BORDER, focused === 'sEmail')} />
+                    style={field(!!sEmailErr, focused === 'sEmail')} />
                   <div style={errStyle}>{sEmailErr}</div>
                 </div>
                 <div>
@@ -251,8 +261,8 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
                     <input type={sShowPw ? 'text' : 'password'} value={sPw} placeholder="At least 8 characters"
                       onChange={e => setSPw(e.target.value)}
                       onFocus={() => setFocused('sPw')} onBlur={() => { setFocused(''); touch(setSTouched, 'pw')() }}
-                      style={field(sPwErr ? ERR_BORDER : OK_BORDER, focused === 'sPw', { padding: '14px 70px 14px 16px' })} />
-                    <button onClick={() => setSShowPw(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', font: "600 13px 'Karla',sans-serif", color: '#8a7c6b', cursor: 'pointer', padding: '8px 10px' }}>{sShowPw ? 'Hide' : 'Show'}</button>
+                      style={field(!!sPwErr, focused === 'sPw', { paddingRight: 66 })} />
+                    <button onClick={() => setSShowPw(v => !v)} style={pwToggleStyle}>{sShowPw ? 'Hide' : 'Show'}</button>
                   </div>
                   <div style={errStyle}>{sPwErr}</div>
                 </div>
@@ -261,28 +271,25 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
                   <input type={sShowPw ? 'text' : 'password'} value={sCpw} placeholder="Repeat your password"
                     onChange={e => setSCpw(e.target.value)}
                     onFocus={() => setFocused('sCpw')} onBlur={() => { setFocused(''); touch(setSTouched, 'cpw')() }}
-                    style={field(sCpwErr ? ERR_BORDER : OK_BORDER, focused === 'sCpw')} />
+                    style={field(!!sCpwErr, focused === 'sCpw')} />
                   <div style={errStyle}>{sCpwErr}</div>
                 </div>
-                <div>
-                  <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, lineHeight: 1.5, color: '#8a7c6b', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={sTerms} onChange={e => setSTerms(e.target.checked)} style={{ width: 17, height: 17, margin: '2px 0 0', flex: 'none', accentColor: ACCENT, cursor: 'pointer' }} />
-                    <span>I agree to the <a href="#" onClick={e => e.preventDefault()} style={{ fontWeight: 600, color: ACCENT }}>Terms of Service</a> and <a href="#" onClick={e => e.preventDefault()} style={{ fontWeight: 600, color: ACCENT }}>Privacy Policy</a>.</span>
-                  </label>
-                  <div style={{ ...errStyle, paddingLeft: 27 }}>{sTermsErr}</div>
-                </div>
+                <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.5, color: 'rgba(240,236,228,0.55)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={sTerms} onChange={e => setSTerms(e.target.checked)} style={{ width: 16, height: 16, margin: '1px 0 0', flex: 'none', accentColor: GOLD_BRIGHT, cursor: 'pointer' }} />
+                  <span>I agree to the <a href="#" onClick={e => e.preventDefault()} style={{ color: GOLD_BRIGHT, fontWeight: 600 }}>Terms</a> and <a href="#" onClick={e => e.preventDefault()} style={{ color: GOLD_BRIGHT, fontWeight: 600 }}>Privacy Policy</a>.</span>
+                </label>
+                <div style={{ ...errStyle, paddingLeft: 26 }}>{sTermsErr}</div>
+
+                <button onClick={submitSignup} disabled={loading} style={{ ...primaryStyle, marginTop: 2 }} {...primaryHover}>
+                  {loading ? <><Spinner />Creating account…</> : 'Create account'}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(240,236,228,0.5)', margin: '18px 0 0' }}>
+                  Already have an account? <a onClick={() => go('login')} style={linkStyle}>Sign in</a>
+                </p>
               </div>
-
-              <button onClick={submitSignup} disabled={loading} style={primaryBtn}>
-                {loading ? <>{spinner}<span>Creating account…</span></> : <span>Create account</span>}
-              </button>
-
-              <p style={{ textAlign: 'center', fontSize: 14.5, color: '#8a7c6b', margin: '24px 0 0' }}>
-                Already have an account? <a href="/login" onClick={e => { e.preventDefault(); setSSub(false); navigate('/login') }} style={linkStyle}>Sign in</a>
-              </p>
             </div>
-          )}
 
+          </div>
         </div>
       </div>
     </div>
