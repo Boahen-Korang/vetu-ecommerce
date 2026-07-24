@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { navigate } from './router'
 import { loadProducts, formatPrice, CATEGORIES, type Filter, type Product } from './products'
 import { addToCart } from './cart'
@@ -43,11 +43,16 @@ export default function Shop() {
 
   const [filter, setFilter] = useState<Filter>(initialFilter)
   const [added, setAdded] = useState<Record<string, boolean>>({})
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     const prev = document.body.style.cursor
     document.body.style.cursor = 'auto'
-    return () => { document.body.style.cursor = prev }
+    return () => {
+      document.body.style.cursor = prev
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
   }, [])
 
   const visible = filter === 'All' ? products : products.filter(p => p.category === filter)
@@ -56,6 +61,9 @@ export default function Shop() {
     addToCart(p, p.sizes[0] || 'One size', 1)
     setAdded(a => ({ ...a, [p.id]: true }))
     setTimeout(() => setAdded(a => ({ ...a, [p.id]: false })), 1400)
+    setToast(p.name)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 4000)
   }
 
   return (
@@ -103,6 +111,17 @@ export default function Shop() {
         <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase', margin: 0 }}>© 2026 Vêtu Ltd.</p>
         <button onClick={() => navigate('/')} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}>← Back to home</button>
       </footer>
+
+      {/* Add-to-bag confirmation → guides the shopper to checkout */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 600, display: 'flex', alignItems: 'center', gap: 18, maxWidth: 'calc(100vw - 32px)', background: 'rgba(12,11,10,0.92)', backdropFilter: 'blur(16px)', border: '1px solid rgba(240,236,228,0.15)', padding: '13px 16px 13px 20px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'rise .3s ease' }}>
+          <div style={{ minWidth: 0 }}>
+            <span className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#c9b99a', marginRight: 10 }}>Added ✓</span>
+            <span style={{ fontSize: 13, color: '#f0ece4' }}>{toast}</span>
+          </div>
+          <button onClick={() => navigate('/cart')} className="font-mono-dm" style={{ flex: 'none', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#060606', background: '#f0ece4', border: 'none', padding: '10px 16px', cursor: 'pointer' }}>View bag & checkout →</button>
+        </div>
+      )}
     </div>
   )
 }
