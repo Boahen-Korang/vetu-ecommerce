@@ -65,7 +65,7 @@ function Divider() {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────────
-type Screen = 'login' | 'signup' | 'success'
+type Screen = 'login' | 'signup'
 
 export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signup' }) {
   const [screen, setScreen] = useState<Screen>(initial)
@@ -90,10 +90,6 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
   const [sTouched, setSTouched] = useState<Record<string, boolean>>({})
   const [sSub, setSSub] = useState(false)
 
-  // success state
-  const [successFrom, setSuccessFrom] = useState<'login' | 'signup'>('login')
-  const [who, setWho] = useState('')
-
   // Keep the visible screen in sync with the URL (/login ↔ /signup).
   useEffect(() => { setScreen(initial) }, [initial])
 
@@ -104,8 +100,9 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
     return () => { document.body.style.cursor = prev }
   }, [])
 
-  const finish = (from: 'login' | 'signup', name: string) => {
-    setTimeout(() => { setLoading(false); setSuccessFrom(from); setWho(name); setScreen('success') }, 1100)
+  // After a brief pause, send the authenticated customer to the shop.
+  const finish = () => {
+    setTimeout(() => navigate('/shop'), 1100)
   }
   const touch = (setter: typeof setLTouched, f: string) => () =>
     setter(t => ({ ...t, [f]: true }))
@@ -127,17 +124,17 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
     setLSub(true)
     if (!vEmail(lEmail) && !vPw(lPw)) {
       setLoading(true); setResetMsg('')
-      finish('login', lEmail.split('@')[0])
+      finish()
     }
   }
   const submitSignup = () => {
     setSSub(true)
     const ok = sName.trim() && !vEmail(sEmail) && !vPw(sPw) && sCpw === sPw && sCpw && sTerms
-    if (ok) { setLoading(true); finish('signup', sName.split(' ')[0]) }
+    if (ok) { setLoading(true); finish() }
   }
   const googleSignIn = () => {
     setLoading(true)
-    finish(screen === 'signup' ? 'signup' : 'login', 'Google')
+    finish()
   }
   const forgotPw = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -145,12 +142,6 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
       ? 'Reset link sent to ' + lEmail + '. Check your inbox.'
       : 'Enter your email above first — then we’ll send you a reset link.')
   }
-  const resetAll = () => {
-    setLoading(false); setLSub(false); setSSub(false)
-    setLPw(''); setSPw(''); setSCpw(''); setResetMsg('')
-    navigate('/login')
-  }
-
   const spinner = (
     <span style={{ width: 16, height: 16, border: '2px solid rgba(255,253,248,0.4)', borderTopColor: '#fffdf8', borderRadius: '50%', animation: 'spin .7s linear infinite', flex: 'none' }} />
   )
@@ -289,22 +280,6 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
               <p style={{ textAlign: 'center', fontSize: 14.5, color: '#8a7c6b', margin: '24px 0 0' }}>
                 Already have an account? <a href="/login" onClick={e => { e.preventDefault(); setSSub(false); navigate('/login') }} style={linkStyle}>Sign in</a>
               </p>
-            </div>
-          )}
-
-          {/* ── Success ── */}
-          {screen === 'success' && (
-            <div style={{ animation: 'rise .35s ease', textAlign: 'center', padding: '34px 0 10px' }}>
-              <div style={{ width: 68, height: 68, borderRadius: '50%', background: '#edf0e2', color: '#6f7d4f', fontSize: 30, lineHeight: '68px', margin: '0 auto 20px' }}>✓</div>
-              <h2 style={{ fontFamily: "'Source Serif 4',serif", fontSize: 26, fontWeight: 600, margin: '0 0 8px' }}>
-                {successFrom === 'signup' ? 'Account created' : 'You’re in'}
-              </h2>
-              <p style={{ margin: '0 0 28px', fontSize: 14.5, lineHeight: 1.5, color: '#8a7c6b' }}>
-                {successFrom === 'signup'
-                  ? 'Welcome' + (who && who !== 'Google' ? ', ' + who : '') + ' — your account is ready. Happy shopping.'
-                  : 'Signed in' + (who && who !== 'Google' ? ' as ' + who : ' with Google') + '. Picking up right where you left off.'}
-              </p>
-              <button onClick={resetAll} style={{ padding: '13px 28px', border: '1.5px solid #e5dccd', borderRadius: RADIUS, background: '#fffdf8', color: '#33291f', font: "600 15px 'Karla',sans-serif", cursor: 'pointer' }}>Back to sign in</button>
             </div>
           )}
 
