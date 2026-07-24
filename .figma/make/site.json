@@ -1,0 +1,15 @@
+{
+  "title": "VÊTU — SS26 Collection",
+  "description": "VÊTU — a captivating 3D landing page showcasing the SS26 collection: architectural silhouettes and refined tailoring for the modern wardrobe.",
+  "language": "en",
+  "icons": {
+    "icon": "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20fill='%23060606'/%3E%3Ctext%20x='32'%20y='44'%20font-family='Georgia,serif'%20font-size='34'%20font-weight='700'%20letter-spacing='1'%20text-anchor='middle'%20fill='%23f0ece4'%3EV%3C/text%3E%3C/svg%3E"
+  },
+  "robots": {
+    "index": true
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

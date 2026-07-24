@@ -1,0 +1,21 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploys the VÊTU app as a static site (Vite build → dist/).
+services:
+  - type: web
+    name: vetu-ecommerce
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      # Vite 8 needs a modern Node; pin it so Render's default can't break the build.
+      - key: NODE_VERSION
+        value: "22.16.0"
+      # Admin passcode — set the real value in the Render dashboard (kept out of git).
+      - key: VITE_ADMIN_PASSCODE
+        sync: false
+    routes:
+      # SPA fallback: every path serves index.html so /shop, /admin, /login work on refresh.
+      - type: rewrite
+        source: /*
+        destination: /index.html
