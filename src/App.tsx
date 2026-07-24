@@ -715,9 +715,14 @@ function Footer() {
           </div>
         ))}
       </div>
-      <div style={{ borderTop: '1px solid rgba(240,236,228,0.05)', paddingTop: 28, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ borderTop: '1px solid rgba(240,236,228,0.05)', paddingTop: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase' }}>© 2026 Vêtu Ltd. All rights reserved.</p>
-        <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase' }}>London · Milan · New York</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <button onClick={() => navigate('/admin')} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.25s' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#c9b99a')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,236,228,0.18)')}>Admin</button>
+          <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase', margin: 0 }}>London · Milan · New York</p>
+        </div>
       </div>
     </footer>
   )
