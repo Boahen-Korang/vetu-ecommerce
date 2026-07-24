@@ -1,34 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { navigate } from './router'
 import { loadProducts, formatPrice, CATEGORIES, type Filter, type Product } from './products'
-
-// ─── Header ──────────────────────────────────────────────────────────────────
-function ShopHeader({ bag }: { bag: number }) {
-  return (
-    <header style={{ position: 'sticky', top: 0, zIndex: 500, height: 72, padding: '0 56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(6,6,6,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(240,236,228,0.06)' }}>
-      <a href="/" onClick={e => { e.preventDefault(); navigate('/') }} className="font-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.25em', color: '#f0ece4', textDecoration: 'none' }}>VÊTU</a>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-        <button onClick={() => navigate('/login')} className="font-mono-dm"
-          style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.3s', padding: 0 }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#f0ece4')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,236,228,0.5)')}>Sign In</button>
-        <span className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#f0ece4', border: '1px solid rgba(240,236,228,0.18)', padding: '9px 18px' }}>
-          Bag ({bag})
-        </span>
-      </div>
-    </header>
-  )
-}
+import { addToCart } from './cart'
+import SiteHeader from './SiteHeader'
 
 // ─── Product card ────────────────────────────────────────────────────────────
 function ProductCard({ product, added, onAdd }: { product: Product; added: boolean; onAdd: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{ display: 'flex', flexDirection: 'column' }}
-    >
+    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'relative', aspectRatio: '7 / 9', background: '#0e0e0e', overflow: 'hidden', marginBottom: 18 }}>
         <img src={product.img} alt={product.alt}
           style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.88) saturate(0.85)', transform: hovered ? 'scale(1.05)' : 'scale(1)', transition: 'transform 0.9s cubic-bezier(0.16,1,0.3,1)' }} />
@@ -62,10 +42,8 @@ export default function Shop() {
   }, [])
 
   const [filter, setFilter] = useState<Filter>(initialFilter)
-  const [bag, setBag] = useState(0)
   const [added, setAdded] = useState<Record<string, boolean>>({})
 
-  // The shop is a utility page — restore the normal cursor the landing hides.
   useEffect(() => {
     const prev = document.body.style.cursor
     document.body.style.cursor = 'auto'
@@ -74,62 +52,54 @@ export default function Shop() {
 
   const visible = filter === 'All' ? products : products.filter(p => p.category === filter)
 
-  const addToBag = (p: Product) => {
-    setBag(n => n + 1)
+  const add = (p: Product) => {
+    addToCart(p, p.sizes[0] || 'One size', 1)
     setAdded(a => ({ ...a, [p.id]: true }))
     setTimeout(() => setAdded(a => ({ ...a, [p.id]: false })), 1400)
   }
 
   return (
     <div style={{ background: '#060606', minHeight: '100vh', color: '#f0ece4', cursor: 'auto' }}>
-      <ShopHeader bag={bag} />
+      <SiteHeader active="shop" />
 
-      {/* Title */}
-      <section style={{ padding: '80px 56px 40px' }}>
+      <section style={{ padding: '80px clamp(20px,5vw,56px) 40px' }}>
         <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 16 }}>— The Collection</p>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 20 }}>
-          <h1 className="font-display" style={{ fontSize: 'clamp(40px, 6vw, 84px)', fontWeight: 700, lineHeight: 0.95, letterSpacing: '-0.025em', color: '#f0ece4', margin: 0 }}>
-            Shop all pieces
-          </h1>
-          <span className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase' }}>
-            {visible.length} {visible.length === 1 ? 'piece' : 'pieces'}
-          </span>
+          <h1 className="font-display" style={{ fontSize: 'clamp(40px, 6vw, 84px)', fontWeight: 700, lineHeight: 0.95, letterSpacing: '-0.025em', color: '#f0ece4', margin: 0 }}>Shop all pieces</h1>
+          <span className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase' }}>{visible.length} {visible.length === 1 ? 'piece' : 'pieces'}</span>
         </div>
       </section>
 
-      {/* Filters */}
-      <div style={{ padding: '0 56px 48px', display: 'flex', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid rgba(240,236,228,0.06)', paddingBottom: 28 }}>
+      <div style={{ padding: '0 clamp(20px,5vw,56px) 28px', display: 'flex', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid rgba(240,236,228,0.06)' }}>
         {CATEGORIES.map(c => {
-          const active = filter === c
+          const activeC = filter === c
           return (
             <button key={c} onClick={() => setFilter(c)} className="font-mono-dm"
-              style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: active ? '#060606' : 'rgba(240,236,228,0.55)', background: active ? '#f0ece4' : 'transparent', border: `1px solid ${active ? '#f0ece4' : 'rgba(240,236,228,0.14)'}`, padding: '10px 20px', cursor: 'pointer', transition: 'all 0.25s' }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.color = '#f0ece4'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.3)' } }}
-              onMouseLeave={e => { if (!active) { e.currentTarget.style.color = 'rgba(240,236,228,0.55)'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.14)' } }}>
+              style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: activeC ? '#060606' : 'rgba(240,236,228,0.55)', background: activeC ? '#f0ece4' : 'transparent', border: `1px solid ${activeC ? '#f0ece4' : 'rgba(240,236,228,0.14)'}`, padding: '10px 20px', cursor: 'pointer', transition: 'all 0.25s' }}
+              onMouseEnter={e => { if (!activeC) { e.currentTarget.style.color = '#f0ece4'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.3)' } }}
+              onMouseLeave={e => { if (!activeC) { e.currentTarget.style.color = 'rgba(240,236,228,0.55)'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.14)' } }}>
               {c}
             </button>
           )
         })}
       </div>
 
-      {/* Grid */}
-      <section style={{ padding: '48px 56px 120px' }}>
+      <section style={{ padding: '48px clamp(20px,5vw,56px) 120px' }}>
         {visible.length === 0 ? (
           <div style={{ padding: '80px 0', textAlign: 'center' }}>
             <p className="font-display" style={{ fontSize: 28, color: '#f0ece4', fontStyle: 'italic', marginBottom: 12 }}>Nothing here yet.</p>
             <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase' }}>No pieces in this category.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px 20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
             {visible.map(p => (
-              <ProductCard key={p.id} product={p} added={!!added[p.id]} onAdd={() => addToBag(p)} />
+              <ProductCard key={p.id} product={p} added={!!added[p.id]} onAdd={() => add(p)} />
             ))}
           </div>
         )}
       </section>
 
-      {/* Slim footer */}
-      <footer style={{ padding: '40px 56px', background: '#040404', borderTop: '1px solid rgba(240,236,228,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+      <footer style={{ padding: '40px clamp(20px,5vw,56px)', background: '#040404', borderTop: '1px solid rgba(240,236,228,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase', margin: 0 }}>© 2026 Vêtu Ltd.</p>
         <button onClick={() => navigate('/')} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}>← Back to home</button>
       </footer>

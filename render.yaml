@@ -1,21 +1,19 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-# Deploys the VÊTU app as a static site (Vite build → dist/).
+# Node web service: builds the Vite frontend and runs the Express server,
+# which serves dist/ and the Stripe Checkout API from a single URL.
 services:
   - type: web
     name: vetu-ecommerce
-    runtime: static
+    runtime: node
+    plan: free
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    pullRequestPreviewsEnabled: true
+    startCommand: node server/index.js
     envVars:
       # Vite 8 needs a modern Node; pin it so Render's default can't break the build.
       - key: NODE_VERSION
         value: "22.16.0"
-      # Admin passcode — set the real value in the Render dashboard (kept out of git).
-      - key: VITE_ADMIN_PASSCODE
+      # Set these in the Render dashboard (kept out of git):
+      - key: STRIPE_SECRET_KEY      # sk_test_... or sk_live_...
         sync: false
-    routes:
-      # SPA fallback: every path serves index.html so /shop, /admin, /login work on refresh.
-      - type: rewrite
-        source: /*
-        destination: /index.html
+      - key: VITE_ADMIN_PASSCODE    # admin console passcode
+        sync: false
