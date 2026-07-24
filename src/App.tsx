@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { navigate } from './router'
+import { useMediaQuery } from './useMediaQuery'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -186,10 +187,11 @@ function Intro({ onDone }: { onDone: () => void }) {
 
 function Nav({ scrollY }: { scrollY: number }) {
   const past = scrollY > 80
+  const compact = useMediaQuery('(max-width: 820px)')
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 500,
-      padding: '0 56px', height: 72,
+      padding: '0 clamp(20px,5vw,56px)', height: 72,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       background: past ? 'rgba(6,6,6,0.92)' : 'transparent',
       backdropFilter: past ? 'blur(20px)' : 'none',
@@ -199,15 +201,17 @@ function Nav({ scrollY }: { scrollY: number }) {
       <span className="font-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.25em', color: '#f0ece4', cursor: 'default', userSelect: 'none' }}>
         VÊTU
       </span>
-      <div style={{ display: 'flex', gap: 40 }}>
-        {['Collections', 'Lookbook', 'Stores', 'About'].map(l => (
-          <button key={l} className="font-mono-dm" data-cursor="View" style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.3s', padding: 0 }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#f0ece4')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,236,228,0.5)')}
-          >{l}</button>
-        ))}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
+      {!compact && (
+        <div style={{ display: 'flex', gap: 40 }}>
+          {['Collections', 'Lookbook', 'Stores', 'About'].map(l => (
+            <button key={l} className="font-mono-dm" data-cursor="View" style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.3s', padding: 0 }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#f0ece4')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,236,228,0.5)')}
+            >{l}</button>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 18 : 28 }}>
         <button
           data-cursor="Enter"
           onClick={() => navigate('/login')}
@@ -238,6 +242,7 @@ function Hero({ scrollY }: { scrollY: number }) {
   const imgParallax = scrollY * 0.28
   const textParallax = scrollY * 0.12
   const opacity = Math.max(0, 1 - scrollY / 650)
+  const isPhone = useMediaQuery('(max-width: 640px)')
 
   return (
     <section style={{ position: 'relative', height: '100vh', overflow: 'hidden', display: 'flex', alignItems: 'flex-end' }}>
@@ -253,18 +258,18 @@ function Hero({ scrollY }: { scrollY: number }) {
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #060606 0%, rgba(6,6,6,0.2) 55%, transparent 100%)', zIndex: 1 }} />
 
       {/* Content */}
-      <div style={{ position: 'relative', zIndex: 2, width: '100%', padding: '0 56px 72px', opacity, transform: `translateY(${-textParallax}px)`, willChange: 'transform, opacity' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', padding: '0 clamp(20px,5vw,56px) clamp(40px,8vw,72px)', opacity, transform: `translateY(${-textParallax}px)`, willChange: 'transform, opacity' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24 }}>
           <div>
             <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 24 }}>
               Edition 06 &nbsp;/&nbsp; Spring · Summer 2026
             </p>
-            <h1 className="font-display" style={{ fontSize: 'clamp(64px, 10vw, 148px)', fontWeight: 900, lineHeight: 0.88, letterSpacing: '-0.03em', color: '#f0ece4', marginBottom: 40 }}>
+            <h1 className="font-display" style={{ fontSize: 'clamp(52px, 11vw, 148px)', fontWeight: 900, lineHeight: 0.88, letterSpacing: '-0.03em', color: '#f0ece4', marginBottom: 40 }}>
               <span style={{ display: 'block' }}>Form</span>
               <span style={{ display: 'block', fontStyle: 'italic', color: '#c9b99a', paddingLeft: '0.15em' }}>follows</span>
               <span style={{ display: 'block' }}>feeling.</span>
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap' }}>
               <button
                 data-cursor="Explore"
                 onClick={() => navigate('/shop')}
@@ -280,19 +285,23 @@ function Hero({ scrollY }: { scrollY: number }) {
             </div>
           </div>
           {/* Side stat */}
-          <div style={{ textAlign: 'right', paddingBottom: 8 }}>
-            <p className="font-display" style={{ fontSize: 80, fontWeight: 900, color: 'rgba(240,236,228,0.06)', lineHeight: 1, letterSpacing: '-0.04em' }}>SS26</p>
-            <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'rgba(240,236,228,0.3)', textTransform: 'uppercase' }}>48 new pieces</p>
-          </div>
+          {!isPhone && (
+            <div style={{ textAlign: 'right', paddingBottom: 8, flex: 'none' }}>
+              <p className="font-display" style={{ fontSize: 'clamp(48px,7vw,80px)', fontWeight: 900, color: 'rgba(240,236,228,0.06)', lineHeight: 1, letterSpacing: '-0.04em' }}>SS26</p>
+              <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'rgba(240,236,228,0.3)', textTransform: 'uppercase' }}>48 new pieces</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Index dots */}
-      <div style={{ position: 'absolute', right: 56, top: '50%', transform: 'translateY(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', gap: 10, opacity }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{ width: i === 0 ? 20 : 6, height: 1, background: i === 0 ? '#c9b99a' : 'rgba(240,236,228,0.2)', transition: 'width 0.3s' }} />
-        ))}
-      </div>
+      {!isPhone && (
+        <div style={{ position: 'absolute', right: 56, top: '50%', transform: 'translateY(-50%)', zIndex: 2, display: 'flex', flexDirection: 'column', gap: 10, opacity }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ width: i === 0 ? 20 : 6, height: 1, background: i === 0 ? '#c9b99a' : 'rgba(240,236,228,0.2)', transition: 'width 0.3s' }} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -319,9 +328,9 @@ function LooksGrid() {
   const { ref, visible } = useReveal(0.08)
 
   return (
-    <section ref={ref} style={{ padding: '140px 56px' }}>
+    <section ref={ref} style={{ padding: 'clamp(72px,12vw,140px) clamp(20px,5vw,56px)' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 72 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 20, marginBottom: 'clamp(40px,7vw,72px)' }}>
         <div>
           <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 16, opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(16px)', transition: 'all 0.7s 0.1s' }}>
             — The Collection
@@ -339,7 +348,7 @@ function LooksGrid() {
       </div>
 
       {/* 3-col grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 20 }}>
         {LOOKS.map((look, i) => (
           <LookCard key={look.id} look={look} delay={i * 0.12} visible={visible} />
         ))}
@@ -465,12 +474,13 @@ function FeaturedProduct({ scrollY }: { scrollY: number }) {
 
   useEffect(() => { if (ref.current) setTop(ref.current.offsetTop) }, [])
   const parallax = Math.max(0, scrollY - top) * 0.16
+  const stack = useMediaQuery('(max-width: 860px)')
 
   return (
     <div ref={ref}>
-      <section ref={visRef} style={{ display: 'grid', gridTemplateColumns: '55% 45%', minHeight: '92vh' }}>
+      <section ref={visRef} style={{ display: 'grid', gridTemplateColumns: stack ? '1fr' : '55% 45%', minHeight: stack ? 0 : '92vh' }}>
         {/* Image */}
-        <div style={{ position: 'relative', overflow: 'hidden', background: '#0a0a0a' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', background: '#0a0a0a', minHeight: stack ? '70vh' : undefined }}>
           <img
             src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=1000&h=1200&fit=crop&auto=format&q=90"
             alt="Model in the Archive Coat — asymmetric lapel, raw hem"
@@ -483,7 +493,7 @@ function FeaturedProduct({ scrollY }: { scrollY: number }) {
         </div>
 
         {/* Details */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '80px 64px', background: '#090909' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 'clamp(48px,8vw,80px) clamp(24px,5vw,64px)', background: '#090909' }}>
           <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 20, opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(12px)', transition: 'all 0.7s 0.1s' }}>
             — Featured Piece
           </p>
@@ -568,7 +578,7 @@ function Statement({ scrollY }: { scrollY: number }) {
           alt="Monochromatic knitwear campaign — close-up texture detail"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '130%', objectFit: 'cover', filter: 'brightness(0.14) saturate(0.4)', transform: `translateY(${-parallax}px)`, willChange: 'transform' }}
         />
-        <div style={{ position: 'relative', zIndex: 1, padding: '0 56px', maxWidth: 1000 }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 clamp(20px,5vw,56px)', maxWidth: 1000 }}>
           <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 36, opacity: visible ? 1 : 0, transition: 'all 0.7s 0.1s' }}>
             — Our Philosophy
           </p>
@@ -602,11 +612,11 @@ function CategoryStrip() {
   ]
 
   return (
-    <section ref={ref} style={{ padding: '120px 56px' }}>
-      <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 56, opacity: visible ? 1 : 0, transition: 'all 0.7s' }}>
+    <section ref={ref} style={{ padding: 'clamp(64px,11vw,120px) clamp(20px,5vw,56px)' }}>
+      <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 'clamp(32px,6vw,56px)', opacity: visible ? 1 : 0, transition: 'all 0.7s' }}>
         — Shop by category
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 14 }}>
         {cats.map((cat, i) => (
           <div
             key={cat.name}
@@ -638,14 +648,14 @@ function Newsletter() {
   const [sent, setSent] = useState(false)
 
   return (
-    <section ref={ref} style={{ padding: '100px 56px', borderTop: '1px solid rgba(240,236,228,0.05)', borderBottom: '1px solid rgba(240,236,228,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 40 }}>
+    <section ref={ref} style={{ padding: 'clamp(56px,9vw,100px) clamp(20px,5vw,56px)', borderTop: '1px solid rgba(240,236,228,0.05)', borderBottom: '1px solid rgba(240,236,228,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 40 }}>
       <div style={{ opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(20px)', transition: 'all 0.8s 0.1s' }}>
         <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.24em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 14 }}>— Stay Informed</p>
         <h2 className="font-display" style={{ fontSize: 'clamp(28px, 3vw, 44px)', fontWeight: 700, letterSpacing: '-0.02em', color: '#f0ece4', lineHeight: 1.1 }}>
           New pieces, first.
         </h2>
       </div>
-      <div style={{ opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(20px)', transition: 'all 0.8s 0.3s', width: 440 }}>
+      <div style={{ opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(20px)', transition: 'all 0.8s 0.3s', width: 'min(100%, 440px)', flex: '1 1 300px' }}>
         {sent ? (
           <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.14em', color: '#c9b99a', textTransform: 'uppercase' }}>Thank you — you are on the list.</p>
         ) : (
@@ -679,10 +689,10 @@ function Newsletter() {
 
 function Footer() {
   return (
-    <footer style={{ padding: '72px 56px 48px', background: '#040404' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr', gap: 48, marginBottom: 72 }}>
-        <div>
-          <h3 className="font-display" style={{ fontSize: 36, fontWeight: 700, letterSpacing: '0.2em', color: '#f0ece4', marginBottom: 16 }}>VÊTU</h3>
+    <footer style={{ padding: 'clamp(56px,9vw,72px) clamp(20px,5vw,56px) 48px', background: '#040404' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: 'clamp(28px,5vw,48px)', marginBottom: 'clamp(44px,7vw,72px)' }}>
+        <div style={{ minWidth: 0 }}>
+          <h3 className="font-display" style={{ fontSize: 'clamp(28px,7vw,36px)', fontWeight: 700, letterSpacing: '0.2em', color: '#f0ece4', marginBottom: 16 }}>VÊTU</h3>
           <p style={{ fontSize: 13, lineHeight: 1.85, color: 'rgba(240,236,228,0.32)', maxWidth: 280 }}>
             Considered clothing for the unhurried. Designed in London. Crafted in Italy. Made to last.
           </p>
@@ -715,7 +725,7 @@ function Footer() {
           </div>
         ))}
       </div>
-      <div style={{ borderTop: '1px solid rgba(240,236,228,0.05)', paddingTop: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ borderTop: '1px solid rgba(240,236,228,0.05)', paddingTop: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase' }}>© 2026 Vêtu Ltd. All rights reserved.</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
           <button onClick={() => navigate('/admin')} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.18)', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.25s' }}
@@ -733,11 +743,13 @@ function Footer() {
 export default function App() {
   const [loaded, setLoaded] = useState(false)
   const scrollY = useScrollY()
+  // Custom cursor is a desktop/pointer affordance — skip it on touch devices.
+  const touch = useMediaQuery('(hover: none), (max-width: 820px)')
 
   return (
-    <div style={{ background: '#060606', minHeight: '100vh', cursor: 'none' }}>
+    <div style={{ background: '#060606', minHeight: '100vh', cursor: touch ? 'auto' : 'none' }}>
       {!loaded && <Intro onDone={() => setLoaded(true)} />}
-      <Cursor />
+      {!touch && <Cursor />}
       <Nav scrollY={scrollY} />
       <Hero scrollY={scrollY} />
       <Marquee />

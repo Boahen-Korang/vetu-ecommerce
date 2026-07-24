@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { navigate } from './router'
 import { loadProducts, formatPrice, CATEGORIES, type Filter, type Product } from './products'
 import { addToCart } from './cart'
+import { useMediaQuery } from './useMediaQuery'
 import SiteHeader from './SiteHeader'
 
 // ─── Product card ────────────────────────────────────────────────────────────
@@ -45,6 +46,10 @@ export default function Shop() {
   const [added, setAdded] = useState<Record<string, boolean>>({})
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
+
+  const isPhone = useMediaQuery('(max-width: 560px)')
+  const isTablet = useMediaQuery('(max-width: 900px)')
+  const cols = isPhone ? 2 : isTablet ? 3 : 4
 
   useEffect(() => {
     const prev = document.body.style.cursor
@@ -99,7 +104,7 @@ export default function Shop() {
             <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.14em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase' }}>No pieces in this category.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 'clamp(12px,3vw,20px)' }}>
             {visible.map(p => (
               <ProductCard key={p.id} product={p} added={!!added[p.id]} onAdd={() => add(p)} />
             ))}

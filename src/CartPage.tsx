@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { navigate } from './router'
 import { useCart, setQty, removeItem, startCheckout } from './cart'
 import { formatPrice } from './products'
+import { useMediaQuery } from './useMediaQuery'
 import SiteHeader from './SiteHeader'
 
 export default function Cart() {
   const items = useCart()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const stack = useMediaQuery('(max-width: 760px)')
 
   useEffect(() => {
     const prev = document.body.style.cursor
@@ -43,7 +45,7 @@ export default function Cart() {
             <button onClick={() => navigate('/shop')} className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#060606', background: '#f0ece4', border: 'none', padding: '14px 30px', cursor: 'pointer' }}>Browse the collection →</button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 56, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: stack ? '1fr' : 'minmax(0,1fr) 320px', gap: stack ? 40 : 56, alignItems: 'start' }}>
             {/* Items */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {items.map(it => (

@@ -5,6 +5,7 @@ import {
   type Product, type Category,
 } from './products'
 import { isAdminAuthed, adminLogin, adminLogout } from './adminAuth'
+import { useMediaQuery } from './useMediaQuery'
 
 const CATS: Category[] = ['Outerwear', 'Knitwear', 'Tailoring', 'Dresses']
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL']
@@ -57,6 +58,7 @@ function AdminConsole({ onLogout }: { onLogout: () => void }) {
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
   const [items, setItems] = useState<Product[]>([])
+  const stack = useMediaQuery('(max-width: 820px)')
 
   useEffect(() => { setItems(loadUploaded()) }, [])
 
@@ -121,7 +123,7 @@ function AdminConsole({ onLogout }: { onLogout: () => void }) {
   return (
     <div style={{ background: '#060606', minHeight: '100vh', color: '#f0ece4', cursor: 'auto', fontFamily: "'DM Sans',sans-serif" }}>
       {/* Header */}
-      <header style={{ height: 72, padding: '0 56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(240,236,228,0.08)' }}>
+      <header style={{ height: 72, padding: '0 clamp(20px,5vw,56px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(240,236,228,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
           <a href="/" onClick={e => { e.preventDefault(); navigate('/') }} className="font-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.25em', color: '#f0ece4', textDecoration: 'none' }}>VÊTU</a>
           <span className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: GOLD }}>Admin</span>
@@ -134,11 +136,11 @@ function AdminConsole({ onLogout }: { onLogout: () => void }) {
         </div>
       </header>
 
-      <div style={{ padding: '56px', maxWidth: 1180, margin: '0 auto' }}>
+      <div style={{ padding: 'clamp(28px,5vw,56px)', maxWidth: 1180, margin: '0 auto' }}>
         <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.24em', color: GOLD, textTransform: 'uppercase', marginBottom: 14 }}>— Upload a piece</p>
         <h1 className="font-display" style={{ fontSize: 'clamp(34px, 5vw, 60px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 48 }}>List new clothing for sale</h1>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 48, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: stack ? '1fr' : 'minmax(0,1fr) 320px', gap: stack ? 32 : 48, alignItems: 'start' }}>
           {/* ── Form ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
             <div>
@@ -209,7 +211,7 @@ function AdminConsole({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {/* ── Live preview ── */}
-          <div style={{ position: 'sticky', top: 96 }}>
+          <div style={{ position: stack ? 'static' : 'sticky', top: 96, maxWidth: stack ? 300 : undefined }}>
             <p style={labelStyle}>Preview</p>
             <div style={{ position: 'relative', aspectRatio: '7 / 9', background: '#0e0e0e', overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(240,236,228,0.06)' }}>
               {image ? (
