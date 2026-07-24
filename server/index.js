@@ -1,10 +1,11 @@
 // ─── VÊTU server ─────────────────────────────────────────────────────────────
-// Serves the built SPA (dist/) and provides the Stripe Checkout endpoint.
-// The Stripe SECRET key is read from the environment and never reaches the
-// browser. Configure STRIPE_SECRET_KEY in the Render dashboard.
+// Serves the built SPA (dist/) and integrates Korapay hosted checkout:
+//   POST /api/checkout  -> initialize a charge, return the checkout_url
+//   GET  /api/verify    -> confirm a charge's status by reference
+// The Korapay SECRET key is read from the environment and never reaches the
+// browser. Configure KORAPAY_SECRET_KEY in the Render dashboard.
 
 import express from 'express'
-import Stripe from 'stripe'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -15,49 +16,77 @@ const dist = path.join(__dirname, '..', 'dist')
 try { process.loadEnvFile(path.join(__dirname, '..', '.env')) } catch { /* no .env present */ }
 
 const PORT = process.env.PORT || 3001
-const secret = process.env.STRIPE_SECRET_KEY
-const stripe = secret ? new Stripe(secret) : null
+const KORA_SECRET = process.env.KORAPAY_SECRET_KEY
+const CURRENCY = process.env.KORAPAY_CURRENCY || 'NGN'
+const KORA_BASE = 'https://api.korapay.com/merchant/api/v1'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, payments: !!stripe }))
+app.get('/api/health', (_req, res) =>
+  res.json({ ok: true, payments: !!KORA_SECRET, provider: 'korapay', currency: CURRENCY }))
 
-app.post('/api/create-checkout-session', async (req, res) => {
+const makeRef = () => 'vetu_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10)
+
+app.post('/api/checkout', async (req, res) => {
   try {
-    if (!stripe) {
-      return res.status(503).json({ error: 'Payments are not configured yet (missing STRIPE_SECRET_KEY).' })
-    }
-    const items = Array.isArray(req.body?.items) ? req.body.items : []
-    if (items.length === 0) return res.status(400).json({ error: 'Your bag is empty.' })
+    if (!KORA_SECRET) return res.status(503).json({ error: 'Payments are not configured yet (missing KORAPAY_SECRET_KEY).' })
 
-    const line_items = items.map(i => {
-      const cents = Math.round(Number(i.price) * 100)
-      if (!i.name || !(cents > 0)) throw new Error('Invalid cart item.')
-      // Stripe only accepts http(s) image URLs — skip data: URLs from uploads.
-      const images = typeof i.img === 'string' && /^https?:\/\//.test(i.img) ? [i.img] : []
-      return {
-        quantity: Math.max(1, Math.min(99, parseInt(i.qty, 10) || 1)),
-        price_data: {
-          currency: 'usd',
-          unit_amount: cents,
-          product_data: { name: String(i.name) + (i.size ? ` — ${i.size}` : ''), images },
-        },
-      }
-    })
+    const items = Array.isArray(req.body?.items) ? req.body.items : []
+    const email = String(req.body?.email || '').trim()
+    if (items.length === 0) return res.status(400).json({ error: 'Your bag is empty.' })
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'A valid email is required for payment.' })
+
+    let amount = 0
+    for (const i of items) {
+      const price = Number(i.price)
+      const qty = Math.max(1, Math.min(99, parseInt(i.qty, 10) || 1))
+      if (!i.name || !(price > 0)) throw new Error('Invalid cart item.')
+      amount += price * qty
+    }
+    amount = Math.round(amount)
 
     const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items,
-      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/cart`,
-      shipping_address_collection: { allowed_countries: ['US', 'GB', 'CA', 'FR', 'DE', 'IT', 'GH'] },
+    const reference = makeRef()
+
+    const kr = await fetch(`${KORA_BASE}/charges/initialize`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${KORA_SECRET}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount,
+        currency: CURRENCY,
+        reference,
+        redirect_url: `${origin}/checkout/success?reference=${reference}`,
+        narration: 'VÊTU order',
+        customer: { email },
+        channels: ['card', 'bank_transfer'],
+        metadata: { summary: items.map(i => `${i.name} x${i.qty}`).join(', ').slice(0, 200) },
+      }),
     })
-    res.json({ url: session.url })
+    const data = await kr.json().catch(() => ({}))
+    if (!kr.ok || !data?.status || !data?.data?.checkout_url) {
+      return res.status(502).json({ error: data?.message || 'Could not start payment.' })
+    }
+    res.json({ url: data.data.checkout_url, reference })
   } catch (e) {
     console.error('checkout error:', e)
     res.status(500).json({ error: e?.message || 'Could not start checkout.' })
+  }
+})
+
+app.get('/api/verify', async (req, res) => {
+  try {
+    if (!KORA_SECRET) return res.status(503).json({ status: 'unknown', error: 'Payments not configured.' })
+    const reference = String(req.query.reference || '')
+    if (!reference) return res.status(400).json({ status: 'unknown', error: 'Missing reference.' })
+
+    const kr = await fetch(`${KORA_BASE}/charges/${encodeURIComponent(reference)}`, {
+      headers: { Authorization: `Bearer ${KORA_SECRET}` },
+    })
+    const data = await kr.json().catch(() => ({}))
+    res.json({ status: data?.data?.status || 'unknown' })
+  } catch (e) {
+    res.status(500).json({ status: 'unknown', error: e?.message })
   }
 })
 
@@ -65,4 +94,4 @@ app.post('/api/create-checkout-session', async (req, res) => {
 app.use(express.static(dist))
 app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
 
-app.listen(PORT, () => console.log(`VÊTU server listening on :${PORT} — payments ${stripe ? 'ON' : 'OFF'}`))
+app.listen(PORT, () => console.log(`VÊTU server on :${PORT} — Korapay ${KORA_SECRET ? 'ON' : 'OFF'} (${CURRENCY})`))

@@ -13,7 +13,9 @@ services:
       - key: NODE_VERSION
         value: "22.16.0"
       # Set these in the Render dashboard (kept out of git):
-      - key: STRIPE_SECRET_KEY      # sk_test_... or sk_live_...
+      - key: KORAPAY_SECRET_KEY     # your Korapay secret key (test or live)
+        sync: false
+      - key: KORAPAY_CURRENCY       # NGN | GHS | KES | USD (default NGN)
         sync: false
       - key: VITE_ADMIN_PASSCODE    # admin console passcode
         sync: false

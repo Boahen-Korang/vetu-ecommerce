@@ -73,13 +73,13 @@ export function useCart(): CartItem[] {
   )
 }
 
-/** Create a Stripe Checkout session on the backend and redirect to it. */
-export async function startCheckout(): Promise<void> {
+/** Initialize a Korapay charge on the backend and redirect to its checkout page. */
+export async function startCheckout(email: string): Promise<void> {
   if (!cache.length) throw new Error('Your bag is empty.')
-  const res = await fetch('/api/create-checkout-session', {
+  const res = await fetch('/api/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: cache }),
+    body: JSON.stringify({ items: cache, email }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Could not start checkout.')

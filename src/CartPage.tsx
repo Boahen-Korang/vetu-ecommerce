@@ -9,6 +9,7 @@ export default function Cart() {
   const items = useCart()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [email, setEmail] = useState('')
   const stack = useMediaQuery('(max-width: 760px)')
 
   useEffect(() => {
@@ -20,9 +21,14 @@ export default function Cart() {
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
 
   const checkout = async () => {
-    setErr(''); setBusy(true)
+    setErr('')
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setErr('Enter a valid email for your receipt.')
+      return
+    }
+    setBusy(true)
     try {
-      await startCheckout() // navigates away on success
+      await startCheckout(email.trim()) // navigates away on success
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Checkout failed.')
       setBusy(false)
@@ -79,13 +85,16 @@ export default function Cart() {
                 <span className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Subtotal</span>
                 <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(subtotal)}</span>
               </div>
-              <p style={{ fontSize: 11, color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '0 0 24px' }}>Shipping &amp; taxes calculated at checkout.</p>
+              <p style={{ fontSize: 11, color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '0 0 20px' }}>Shipping &amp; taxes calculated at checkout.</p>
+              <label className="font-mono-dm" style={{ display: 'block', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#c9b99a', marginBottom: 8 }}>Email for receipt</label>
+              <input type="email" value={email} onChange={e => { setEmail(e.target.value); if (err) setErr('') }} placeholder="you@example.com"
+                style={{ width: '100%', boxSizing: 'border-box', fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#f0ece4', background: 'rgba(240,236,228,0.04)', border: '1px solid rgba(240,236,228,0.14)', padding: '12px 14px', outline: 'none', marginBottom: 18 }} />
               <button onClick={checkout} disabled={busy} className="font-mono-dm"
                 style={{ width: '100%', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#060606', background: '#f0ece4', border: 'none', padding: 16, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
-                {busy ? 'Redirecting…' : 'Checkout'}
+                {busy ? 'Redirecting…' : 'Pay with Korapay'}
               </button>
               {err && <p className="font-mono-dm" style={{ fontSize: 11.5, color: '#cf6b52', margin: '14px 0 0', lineHeight: 1.5 }}>{err}</p>}
-              <p style={{ fontSize: 10, color: 'rgba(240,236,228,0.3)', textAlign: 'center', margin: '16px 0 0', letterSpacing: '0.06em' }}>Secure payment via Stripe</p>
+              <p style={{ fontSize: 10, color: 'rgba(240,236,228,0.3)', textAlign: 'center', margin: '16px 0 0', letterSpacing: '0.06em' }}>Secure payment via Korapay</p>
             </aside>
           </div>
         )}
