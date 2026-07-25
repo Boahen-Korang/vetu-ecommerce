@@ -8,3 +8,6 @@ dist
 # Local artifacts not needed for deploy
 *.zip
 _login_import/
+
+# Server-stored gateway keys — never commit
+server/data/

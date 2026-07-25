@@ -5,7 +5,7 @@ import {
   type Product, type Category,
 } from './products'
 import { loadOrders, type Order } from './orders'
-import { isAdminAuthed, adminLogin, adminLogout } from './adminAuth'
+import { isAdminAuthed, adminLogin, adminLogout, adminPasscode } from './adminAuth'
 import { useMediaQuery } from './useMediaQuery'
 
 const GOLD = '#c9b99a'
@@ -315,27 +315,127 @@ function Orders() {
   )
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
-function Settings({ onLogout }: { onLogout: () => void }) {
-  const [health, setHealth] = useState<{ payments?: boolean; provider?: string; currency?: string } | null>(null)
-  useEffect(() => { fetch('/api/health').then(r => r.json()).then(setHealth).catch(() => setHealth(null)) }, [])
-  const row = (k: string, v: string, color = '#f0ece4') => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid rgba(240,236,228,0.06)' }}>
-      <span className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)' }}>{k}</span>
-      <span className="font-mono-dm" style={{ fontSize: 12, color }}>{v}</span>
+// ─── Settings: payment gateway manager ───────────────────────────────────────
+type PublicConfig = {
+  active: string
+  supported: string[]
+  labels: Record<string, string>
+  gateways: Record<string, { configured: boolean; last4: string; currency: string }>
+}
+
+function GatewaySettings() {
+  const [cfg, setCfg] = useState<PublicConfig | null>(null)
+  const [active, setActive] = useState('')
+  const [keys, setKeys] = useState<Record<string, string>>({})
+  const [currencies, setCurrencies] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  const load = () => {
+    setLoading(true); setErr(''); setMsg('')
+    fetch('/api/admin/gateways', { headers: { 'x-admin-passcode': adminPasscode() } })
+      .then(async r => {
+        if (r.status === 401) throw new Error('The server rejected the admin passcode. Set ADMIN_PASSCODE on the server to match your login passcode.')
+        if (!r.ok) throw new Error('Could not load gateway settings.')
+        return r.json()
+      })
+      .then((c: PublicConfig) => {
+        setCfg(c); setActive(c.active)
+        const cur: Record<string, string> = {}
+        c.supported.forEach(g => { cur[g] = c.gateways[g].currency })
+        setCurrencies(cur); setKeys({})
+      })
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false))
+  }
+  useEffect(load, [])
+
+  const save = () => {
+    if (!cfg) return
+    setSaving(true); setMsg(''); setErr('')
+    const gateways: Record<string, { currency: string; secretKey?: string }> = {}
+    cfg.supported.forEach(g => {
+      gateways[g] = { currency: currencies[g] }
+      if (keys[g]?.trim()) gateways[g].secretKey = keys[g].trim()
+    })
+    fetch('/api/admin/gateways', {
+      method: 'POST',
+      headers: { 'x-admin-passcode': adminPasscode(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active, gateways }),
+    })
+      .then(async r => {
+        if (r.status === 401) throw new Error('The server rejected the admin passcode (set ADMIN_PASSCODE on the server).')
+        if (!r.ok) throw new Error('Could not save gateway settings.')
+        return r.json()
+      })
+      .then((c: PublicConfig) => { setCfg(c); setKeys({}); setMsg('Saved. Changes take effect immediately.') })
+      .catch(e => setErr(e.message))
+      .finally(() => setSaving(false))
+  }
+
+  if (loading) return <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.5)' }}>Loading gateways…</p>
+  if (!cfg) return <p className="font-mono-dm" style={{ fontSize: 12, color: '#cf6b52', lineHeight: 1.6 }}>{err || 'Could not load gateways.'}</p>
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {cfg.supported.map(g => {
+          const info = cfg.gateways[g]
+          const isActive = active === g
+          return (
+            <div key={g} style={{ ...panel, border: `1px solid ${isActive ? 'rgba(201,185,154,0.4)' : 'rgba(240,236,228,0.09)'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                  <input type="radio" name="active-gateway" checked={isActive} onChange={() => setActive(g)} style={{ accentColor: GOLD, cursor: 'pointer' }} />
+                  <span className="font-display" style={{ fontSize: 18, fontWeight: 600, color: '#f0ece4' }}>{cfg.labels[g] || g}</span>
+                  {isActive && <span className="font-mono-dm" style={{ fontSize: 8.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#060606', background: GOLD, padding: '3px 7px' }}>Active</span>}
+                </label>
+                <span className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.1em', color: info.configured ? '#7fae7f' : 'rgba(240,236,228,0.35)' }}>
+                  {info.configured ? `configured ••••${info.last4}` : 'not set'}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Secret key</label>
+                  <input type="password" value={keys[g] ?? ''} onChange={e => setKeys(k => ({ ...k, [g]: e.target.value }))}
+                    placeholder={info.configured ? 'leave blank to keep current' : `sk_… (${cfg.labels[g] || g} secret key)`} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Currency</label>
+                  <input value={currencies[g] ?? ''} onChange={e => setCurrencies(c => ({ ...c, [g]: e.target.value }))} placeholder="NGN" style={inputStyle} />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {err && <p className="font-mono-dm" style={{ fontSize: 12, color: '#cf6b52', margin: '18px 0 0', lineHeight: 1.6 }}>{err}</p>}
+      {msg && <p className="font-mono-dm" style={{ fontSize: 12, color: '#7fae7f', margin: '18px 0 0' }}>{msg}</p>}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        <button onClick={save} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save gateways'}</button>
+        <button onClick={load} style={ghostBtn}>Reset</button>
+      </div>
+      <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.03em', color: 'rgba(240,236,228,0.3)', lineHeight: 1.7, margin: '20px 0 0' }}>
+        Keys are stored on the server, never in the browser. On Render&rsquo;s free tier they reset when the service restarts — set them as env vars (or add a persistent disk) for durability.
+      </p>
     </div>
   )
+}
+
+function Settings({ onLogout }: { onLogout: () => void }) {
   return (
     <div>
       <p style={kicker}>— Configuration</p>
-      <h1 style={sectionTitle}>Settings</h1>
-      <div style={{ ...panel, margin: '28px 0', maxWidth: 480 }}>
-        <p style={{ ...kicker, marginBottom: 14 }}>Payments</p>
-        {row('Provider', health?.provider ? health.provider : '—')}
-        {row('Currency', health?.currency ?? '—')}
-        {row('Status', health?.payments ? 'Live' : 'Not configured', health?.payments ? '#7fae7f' : '#cf6b52')}
-      </div>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <h1 style={sectionTitle}>Payment gateways</h1>
+      <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.03em', color: 'rgba(240,236,228,0.4)', lineHeight: 1.6, margin: '14px 0 28px' }}>
+        Add each provider&rsquo;s secret key and choose which one is active for checkout.
+      </p>
+      <GatewaySettings />
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 36, paddingTop: 24, borderTop: '1px solid rgba(240,236,228,0.08)' }}>
         <button onClick={() => navigate('/shop')} style={ghostBtn}>View shop →</button>
         <button onClick={onLogout} style={{ ...ghostBtn, color: '#cf6b52', borderColor: 'rgba(207,107,82,0.4)' }}>Log out</button>
       </div>

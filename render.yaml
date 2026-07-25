@@ -8,14 +8,38 @@ services:
     plan: free
     buildCommand: npm install && npm run build
     startCommand: node server/index.js
+    # For durable gateway keys set via the admin UI, attach a disk (paid plans):
+    # disk:
+    #   name: data
+    #   mountPath: /data
+    #   sizeGB: 1
+    # …and set DATA_DIR=/data below. Otherwise set keys as env vars (persistent).
     envVars:
       # Vite 8 needs a modern Node; pin it so Render's default can't break the build.
       - key: NODE_VERSION
         value: "22.16.0"
-      # Set these in the Render dashboard (kept out of git):
-      - key: KORAPAY_SECRET_KEY     # your Korapay secret key (test or live)
+      # Admin passcode — MUST match VITE_ADMIN_PASSCODE so the dashboard can save keys.
+      - key: ADMIN_PASSCODE
         sync: false
-      - key: KORAPAY_CURRENCY       # NGN | GHS | KES | USD (default NGN)
+      - key: VITE_ADMIN_PASSCODE
         sync: false
-      - key: VITE_ADMIN_PASSCODE    # admin console passcode
+      # Which gateway is active for checkout (korapay | paystack | flutterwave | stripe).
+      - key: ACTIVE_GATEWAY
+        sync: false
+      # Optional: seed gateway keys via env (the admin UI can also set them at runtime).
+      - key: KORAPAY_SECRET_KEY
+        sync: false
+      - key: KORAPAY_CURRENCY
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_CURRENCY
+        sync: false
+      - key: FLW_SECRET_KEY
+        sync: false
+      - key: FLW_CURRENCY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_CURRENCY
         sync: false

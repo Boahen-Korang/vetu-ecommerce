@@ -1,13 +1,13 @@
 // ─── VÊTU server ─────────────────────────────────────────────────────────────
-// Serves the built SPA (dist/) and integrates Korapay hosted checkout:
-//   POST /api/checkout  -> initialize a charge, return the checkout_url
-//   GET  /api/verify    -> confirm a charge's status by reference
-// The Korapay SECRET key is read from the environment and never reaches the
-// browser. Configure KORAPAY_SECRET_KEY in the Render dashboard.
+// Serves the built SPA (dist/) and provides checkout across multiple payment
+// gateways (Korapay / Paystack / Flutterwave / Stripe). Gateway secret keys are
+// stored server-side (see gateways.js) and never reach the browser. Admin key
+// management is authorized by a server-side passcode (ADMIN_PASSCODE).
 
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createCharge, verifyCharge, publicConfig, saveConfig, activeStatus } from './gateways.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dist = path.join(__dirname, '..', 'dist')
@@ -16,82 +16,68 @@ const dist = path.join(__dirname, '..', 'dist')
 try { process.loadEnvFile(path.join(__dirname, '..', '.env')) } catch { /* no .env present */ }
 
 const PORT = process.env.PORT || 3001
-const KORA_SECRET = process.env.KORAPAY_SECRET_KEY
-const CURRENCY = process.env.KORAPAY_CURRENCY || 'NGN'
-const KORA_BASE = 'https://api.korapay.com/merchant/api/v1'
+const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || process.env.VITE_ADMIN_PASSCODE || 'vetu-admin'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
 
-app.get('/api/health', (_req, res) =>
-  res.json({ ok: true, payments: !!KORA_SECRET, provider: 'korapay', currency: CURRENCY }))
-
-const makeRef = () => 'vetu_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10)
+// ── Storefront payment endpoints ──
+app.get('/api/health', (_req, res) => {
+  const s = activeStatus()
+  res.json({ ok: true, payments: s.payments, provider: s.provider, currency: s.currency })
+})
 
 app.post('/api/checkout', async (req, res) => {
   try {
-    if (!KORA_SECRET) return res.status(503).json({ error: 'Payments are not configured yet (missing KORAPAY_SECRET_KEY).' })
-
     const items = Array.isArray(req.body?.items) ? req.body.items : []
     const email = String(req.body?.email || '').trim()
     if (items.length === 0) return res.status(400).json({ error: 'Your bag is empty.' })
     if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'A valid email is required for payment.' })
 
-    let amount = 0
-    for (const i of items) {
-      const price = Number(i.price)
-      const qty = Math.max(1, Math.min(99, parseInt(i.qty, 10) || 1))
-      if (!i.name || !(price > 0)) throw new Error('Invalid cart item.')
-      amount += price * qty
-    }
-    amount = Math.round(amount)
-
     const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`
-    const reference = makeRef()
-
-    const kr = await fetch(`${KORA_BASE}/charges/initialize`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${KORA_SECRET}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount,
-        currency: CURRENCY,
-        reference,
-        redirect_url: `${origin}/checkout/success?reference=${reference}`,
-        narration: 'VÊTU order',
-        customer: { email },
-        channels: ['card', 'bank_transfer'],
-        metadata: { summary: items.map(i => `${i.name} x${i.qty}`).join(', ').slice(0, 200) },
-      }),
-    })
-    const data = await kr.json().catch(() => ({}))
-    if (!kr.ok || !data?.status || !data?.data?.checkout_url) {
-      return res.status(502).json({ error: data?.message || 'Could not start payment.' })
-    }
-    res.json({ url: data.data.checkout_url, reference })
+    const { url, reference } = await createCharge({ items, email, origin })
+    res.json({ url, reference })
   } catch (e) {
     console.error('checkout error:', e)
-    res.status(500).json({ error: e?.message || 'Could not start checkout.' })
+    const msg = e?.message || 'Could not start checkout.'
+    res.status(/not configured/i.test(msg) ? 503 : 502).json({ error: msg })
   }
 })
 
 app.get('/api/verify', async (req, res) => {
   try {
-    if (!KORA_SECRET) return res.status(503).json({ status: 'unknown', error: 'Payments not configured.' })
     const reference = String(req.query.reference || '')
     if (!reference) return res.status(400).json({ status: 'unknown', error: 'Missing reference.' })
-
-    const kr = await fetch(`${KORA_BASE}/charges/${encodeURIComponent(reference)}`, {
-      headers: { Authorization: `Bearer ${KORA_SECRET}` },
-    })
-    const data = await kr.json().catch(() => ({}))
-    res.json({ status: data?.data?.status || 'unknown' })
+    res.json({ status: await verifyCharge(reference) })
   } catch (e) {
     res.status(500).json({ status: 'unknown', error: e?.message })
   }
 })
 
-// Static assets + SPA fallback (so /shop, /cart, /admin, /checkout/success load).
+// ── Admin gateway configuration (server-authorized) ──
+function requireAdmin(req, res, next) {
+  if ((req.headers['x-admin-passcode'] || '') !== ADMIN_PASSCODE) {
+    return res.status(401).json({ error: 'Unauthorized.' })
+  }
+  next()
+}
+
+app.get('/api/admin/gateways', requireAdmin, (_req, res) => res.json(publicConfig()))
+
+app.post('/api/admin/gateways', requireAdmin, (req, res) => {
+  try {
+    res.json(saveConfig(req.body || {}))
+  } catch (e) {
+    console.error('save gateways error:', e)
+    res.status(500).json({ error: 'Could not save gateway settings.' })
+  }
+})
+
+// ── Static assets + SPA fallback ──
 app.use(express.static(dist))
 app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
 
-app.listen(PORT, () => console.log(`VÊTU server on :${PORT} — Korapay ${KORA_SECRET ? 'ON' : 'OFF'} (${CURRENCY})`))
+app.listen(PORT, () => {
+  const s = activeStatus()
+  console.log(`VÊTU server on :${PORT} — active gateway: ${s.provider} (${s.payments ? 'configured' : 'not set'}, ${s.currency})`)
+})
