@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { navigate } from './router'
 import { clearCart } from './cart'
+import { updateOrderStatus } from './orders'
 
 type State = 'checking' | 'success' | 'failed'
 
@@ -19,8 +20,8 @@ export default function CheckoutSuccess() {
       fetch('/api/verify?reference=' + encodeURIComponent(reference))
         .then(r => r.json())
         .then(d => {
-          if (d.status === 'success') { clearCart(); setState('success') }
-          else setState('failed')
+          if (d.status === 'success') { updateOrderStatus(reference, 'paid'); clearCart(); setState('success') }
+          else { updateOrderStatus(reference, 'failed'); setState('failed') }
         })
         .catch(() => setState('failed'))
     }

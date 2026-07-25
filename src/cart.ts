@@ -5,6 +5,7 @@
 
 import { useSyncExternalStore } from 'react'
 import type { Product } from './products'
+import { saveOrder } from './orders'
 
 export type CartItem = {
   id: string
@@ -84,5 +85,9 @@ export async function startCheckout(email: string): Promise<void> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Could not start checkout.')
   if (!data.url) throw new Error('No checkout URL returned.')
+  // Record the order locally (pending) so it shows in the admin dashboard.
+  if (data.reference) {
+    saveOrder({ reference: data.reference, email, items: cache.map(i => ({ ...i })), amount: cartSubtotal(), createdAt: Date.now(), status: 'pending' })
+  }
   window.location.href = data.url
 }
