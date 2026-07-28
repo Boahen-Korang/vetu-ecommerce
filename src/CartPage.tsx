@@ -107,7 +107,13 @@ export default function Cart() {
                   {F('Region', region, setRegion, 'Greater Accra', true)}
                 </div>
                 <div style={{ marginTop: 20 }}>
-                  <LocationPicker value={loc} onChange={l => { setLoc(l); if (l.address) setAddress(a => a || l.address) }} />
+                  <LocationPicker value={loc} onChange={l => {
+                    setLoc(l)
+                    if (l.address) setAddress(l.address)
+                    if (l.city) setCity(l.city)
+                    if (l.region) setRegion(l.region)
+                    if (err) setErr('')
+                  }} />
                 </div>
               </div>
             </div>
