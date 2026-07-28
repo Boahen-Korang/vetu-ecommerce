@@ -308,8 +308,33 @@ function StatusBadge({ status }: { status: Order['status'] }) {
   return <span className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color, border: `1px solid ${color}55`, padding: '4px 8px' }}>{label}</span>
 }
 
+function OrderRow({ o }: { o: AdminOrder }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(240,236,228,0.06)', flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+        <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.5)' }}>
+          {new Date(o.createdAt).toLocaleDateString()} · {o.items.reduce((n, i) => n + i.qty, 0)} item(s) · {o.reference.slice(0, 16)}…
+        </p>
+        {o.delivery && (o.delivery.address || o.delivery.name) && (
+          <p style={{ fontSize: 12, color: 'rgba(240,236,228,0.55)', marginTop: 8, lineHeight: 1.5 }}>
+            🚚 <strong style={{ color: '#f0ece4' }}>{o.delivery.name}</strong>{o.delivery.phone ? ` · ${o.delivery.phone}` : ''}<br />
+            {[o.delivery.address, o.delivery.city, o.delivery.region].filter(Boolean).join(', ')}
+            {o.delivery.lat != null && o.delivery.lng != null && (
+              <> · <a href={`https://www.google.com/maps?q=${o.delivery.lat},${o.delivery.lng}`} target="_blank" rel="noreferrer" style={{ color: '#d4af7a' }}>map ↗</a></>
+            )}
+          </p>
+        )}
+      </div>
+      <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(o.amount)}</span>
+      <StatusBadge status={o.status} />
+    </div>
+  )
+}
+
 function Orders() {
   const [orders, setOrders] = useState<AdminOrder[]>([])
+  const members = useServerCustomers()
+  const [open, setOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const sync = (auto = false) => {
@@ -321,41 +346,59 @@ function Orders() {
       .finally(() => setBusy(false))
   }
   useEffect(() => { fetchOrders().then(setOrders); sync(true) }, [])
+
+  // Group orders by customer (email); name from member account, else delivery, else email.
+  const nameByEmail = new Map(members.map(m => [m.email.toLowerCase(), m.name]))
+  const groups = new Map<string, AdminOrder[]>()
+  for (const o of orders) {
+    const key = (o.email || 'unknown').toLowerCase()
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(o)
+  }
+  const customers = [...groups.entries()].map(([email, os]) => ({
+    email,
+    name: nameByEmail.get(email) || os.find(o => o.delivery?.name)?.delivery?.name || email,
+    orders: os,
+    paid: os.filter(o => o.status === 'paid').length,
+    latest: Math.max(...os.map(o => o.createdAt || 0)),
+  })).sort((a, b) => b.latest - a.latest)
+
   return (
     <div>
       <p style={kicker}>— Sales</p>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={sectionTitle}>Orders <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({orders.length})</span></h1>
+        <h1 style={sectionTitle}>Orders <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({customers.length} customers · {orders.length} orders)</span></h1>
         <button onClick={() => sync()} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.6 : 1 }}>{busy ? 'Syncing…' : 'Sync pending payments'}</button>
       </div>
       <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 20px' }}>
-        Orders update to &ldquo;paid&rdquo; automatically once payment is verified. If one is stuck on pending (customer paid but didn&rsquo;t return), click &ldquo;Sync pending payments&rdquo;.
+        Click a customer to see their orders, delivery details and payment status. Paid status updates automatically.
       </p>
       {msg && <p className="font-mono-dm" style={{ fontSize: 12, color: '#7fae7f', margin: '0 0 20px' }}>{msg}</p>}
       <div style={panel}>
-        {orders.length === 0
+        {customers.length === 0
           ? <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.4)', padding: '20px 0' }}>No orders yet.</p>
-          : orders.map(o => (
-            <div key={o.reference} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(240,236,228,0.06)', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                <p style={{ fontSize: 14, color: '#f0ece4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.email}</p>
-                <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.4)', marginTop: 4 }}>
-                  {new Date(o.createdAt).toLocaleDateString()} · {o.items.reduce((n, i) => n + i.qty, 0)} item(s) · {o.reference.slice(0, 16)}…
-                </p>
-                {o.delivery && (o.delivery.address || o.delivery.name) && (
-                  <p style={{ fontSize: 12, color: 'rgba(240,236,228,0.55)', marginTop: 8, lineHeight: 1.5 }}>
-                    🚚 <strong style={{ color: '#f0ece4' }}>{o.delivery.name}</strong>{o.delivery.phone ? ` · ${o.delivery.phone}` : ''}<br />
-                    {[o.delivery.address, o.delivery.city, o.delivery.region].filter(Boolean).join(', ')}
-                    {o.delivery.lat != null && o.delivery.lng != null && (
-                      <> · <a href={`https://www.google.com/maps?q=${o.delivery.lat},${o.delivery.lng}`} target="_blank" rel="noreferrer" style={{ color: '#d4af7a' }}>map ↗</a></>
-                    )}
-                  </p>
+          : customers.map(c => {
+            const isOpen = open === c.email
+            return (
+              <div key={c.email} style={{ borderBottom: '1px solid rgba(240,236,228,0.06)' }}>
+                <button onClick={() => setOpen(isOpen ? null : c.email)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 0', textAlign: 'left' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(201,185,154,0.15)', color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono',monospace", fontSize: 13, flex: 'none' }}>{(c.name || c.email).charAt(0).toUpperCase()}</div>
+                  <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                    <p className="font-display" style={{ fontSize: 16, fontWeight: 600, color: '#f0ece4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
+                    <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.4)', marginTop: 3 }}>{c.orders.length} order{c.orders.length > 1 ? 's' : ''} · {c.paid} paid</p>
+                  </div>
+                  <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.5)', flex: 'none' }}>{isOpen ? '▾' : '▸'}</span>
+                </button>
+                {isOpen && (
+                  <div style={{ padding: '0 0 14px 50px' }}>
+                    <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.1em', color: 'rgba(240,236,228,0.4)', margin: '0 0 6px' }}>{c.email}</p>
+                    {c.orders.map(o => <OrderRow key={o.reference} o={o} />)}
+                  </div>
                 )}
               </div>
-              <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(o.amount)}</span>
-              <StatusBadge status={o.status} />
-            </div>
-          ))}
+            )
+          })}
       </div>
     </div>
   )
