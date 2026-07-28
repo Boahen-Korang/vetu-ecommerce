@@ -11,7 +11,7 @@ import { createCharge, verifyCharge, publicConfig, saveConfig, activeStatus } fr
 import {
   initDb, hasDb,
   userByEmail, userById, insertUser, hashPassword, verifyPassword, makeToken, readToken, genId,
-  upsertOrder, setOrderStatus, allOrders,
+  upsertOrder, setOrderStatus, allOrders, allUsers,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -128,6 +128,10 @@ app.post('/api/admin/gateways', requireAdmin, async (req, res) => {
 app.get('/api/admin/orders', requireAdmin, async (_req, res) => {
   try { res.json({ orders: await allOrders() }) }
   catch (e) { console.error('orders error:', e); res.status(500).json({ error: 'Could not load orders.' }) }
+})
+app.get('/api/admin/customers', requireAdmin, async (_req, res) => {
+  try { res.json({ users: await allUsers() }) }
+  catch (e) { console.error('customers error:', e); res.status(500).json({ error: 'Could not load customers.' }) }
 })
 
 // ── Static assets + SPA fallback ──

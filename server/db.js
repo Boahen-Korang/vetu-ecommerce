@@ -110,6 +110,16 @@ export async function allOrders() {
   return readJson('orders.json', []).slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
 }
 
+export async function allUsers() {
+  if (pool) {
+    const r = await pool.query('SELECT id,email,name,created_at FROM users ORDER BY created_at DESC LIMIT 1000')
+    return r.rows
+  }
+  return readJson('users.json', [])
+    .map(u => ({ id: u.id, email: u.email, name: u.name, created_at: u.created_at }))
+    .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+}
+
 // ── auth helpers ──
 const APP_SECRET = process.env.APP_SECRET || process.env.ADMIN_PASSCODE || 'vetu_dev_secret_change_me'
 

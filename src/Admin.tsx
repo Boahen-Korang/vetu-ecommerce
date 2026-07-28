@@ -12,7 +12,7 @@ const GOLD = '#c9b99a'
 const CATS: Category[] = ['Outerwear', 'Knitwear', 'Tailoring', 'Dresses']
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL']
 
-type Section = 'overview' | 'products' | 'orders' | 'settings'
+type Section = 'overview' | 'products' | 'orders' | 'customers' | 'settings'
 
 // Downscale an uploaded image to keep localStorage small (~50–120 KB/item).
 function fileToDataUrl(file: File, maxW = 700): Promise<string> {
@@ -180,6 +180,7 @@ function Overview({ go }: { go: (s: Section) => void }) {
   const products = loadProducts()
   const uploaded = loadUploaded()
   const orders = useServerOrders()
+  const members = useServerCustomers()
   const paid = orders.filter(o => o.status === 'paid')
   const revenue = paid.reduce((s, o) => s + o.amount, 0)
   const catalogValue = products.reduce((s, p) => s + p.price, 0)
@@ -191,6 +192,7 @@ function Overview({ go }: { go: (s: Section) => void }) {
       <h1 style={sectionTitle}>Overview</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,180px),1fr))', gap: 16, margin: '32px 0' }}>
         <StatTile label="Products" value={String(products.length)} sub={`${uploaded.length} uploaded · ${products.length - uploaded.length} default`} />
+        <StatTile label="Members" value={String(members.length)} />
         <StatTile label="Paid orders" value={String(paid.length)} sub={`${orders.length} total`} />
         <StatTile label="Revenue (paid)" value={formatPrice(revenue)} />
         <StatTile label="Catalog value" value={formatPrice(catalogValue)} />
@@ -334,6 +336,46 @@ function Orders() {
               </div>
               <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(o.amount)}</span>
               <StatusBadge status={o.status} />
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Members (customers) ─────────────────────────────────────────────────────
+type Member = { id: string; email: string; name: string; created_at: number }
+function useServerCustomers(): Member[] {
+  const [users, setUsers] = useState<Member[]>([])
+  useEffect(() => {
+    fetch('/api/admin/customers', { headers: { 'x-admin-passcode': adminPasscode() } })
+      .then(r => (r.ok ? r.json() : { users: [] }))
+      .then(d => setUsers((d.users || []).map((u: { id: string; email: string; name?: string; created_at: number }) => ({ id: u.id, email: u.email, name: u.name || '', created_at: Number(u.created_at) || 0 }))))
+      .catch(() => setUsers([]))
+  }, [])
+  return users
+}
+
+function Customers() {
+  const users = useServerCustomers()
+  return (
+    <div>
+      <p style={kicker}>— People</p>
+      <h1 style={sectionTitle}>Members <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({users.length})</span></h1>
+      <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 28px' }}>
+        Everyone who has created an account. New signups appear here automatically.
+      </p>
+      <div style={panel}>
+        {users.length === 0
+          ? <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.4)', padding: '20px 0' }}>No members yet.</p>
+          : users.map(u => (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(240,236,228,0.06)', flexWrap: 'wrap' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(201,185,154,0.15)', color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono',monospace", fontSize: 13, flex: 'none' }}>{(u.name || u.email).charAt(0).toUpperCase()}</div>
+              <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                <p className="font-display" style={{ fontSize: 16, fontWeight: 600, color: '#f0ece4' }}>{u.name || '—'}</p>
+                <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.5)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
+              </div>
+              <span className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.4)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : ''}</span>
             </div>
           ))}
       </div>
@@ -538,6 +580,7 @@ const NAV: { key: Section; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'products', label: 'Products' },
   { key: 'orders', label: 'Orders' },
+  { key: 'customers', label: 'Members' },
   { key: 'settings', label: 'Settings' },
 ]
 
@@ -574,6 +617,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const content = section === 'overview' ? <Overview go={setSection} />
     : section === 'products' ? <Products />
     : section === 'orders' ? <Orders />
+    : section === 'customers' ? <Customers />
     : <Settings onLogout={onLogout} />
 
   return (
