@@ -44,7 +44,7 @@ const LOOKS = [
     id: '01',
     title: 'The Overcoat',
     subtitle: 'Obsidian',
-    price: '$1,240',
+    price: '₵1,240',
     tag: 'OUTERWEAR',
     img: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800&h=1100&fit=crop&auto=format&q=90',
     alt: 'Model in long obsidian overcoat, architectural silhouette',
@@ -53,7 +53,7 @@ const LOOKS = [
     id: '02',
     title: 'The Column Dress',
     subtitle: 'Ivory',
-    price: '$680',
+    price: '₵680',
     tag: 'EVENINGWEAR',
     img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&h=1100&fit=crop&auto=format&q=90',
     alt: 'Model in minimal ivory column dress',
@@ -62,7 +62,7 @@ const LOOKS = [
     id: '03',
     title: 'The Tailored Blazer',
     subtitle: 'Charcoal',
-    price: '$890',
+    price: '₵890',
     tag: 'TAILORING',
     img: 'https://images.unsplash.com/photo-1550614000-4895a10e1bfd?w=800&h=1100&fit=crop&auto=format&q=90',
     alt: 'Sharply tailored charcoal blazer editorial',
@@ -504,7 +504,7 @@ function FeaturedProduct({ scrollY }: { scrollY: number }) {
             The Archive<br /><em>Coat</em>
           </h2>
           <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.1em', color: '#c9b99a', marginBottom: 36, opacity: visible ? 1 : 0, transition: 'all 0.7s 0.3s' }}>
-            $880
+            ₵880
           </p>
           <p style={{ fontSize: 14, lineHeight: 1.9, color: 'rgba(240,236,228,0.46)', marginBottom: 52, maxWidth: 380, opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(12px)', transition: 'all 0.7s 0.35s' }}>
             The Archive Coat begins where most garments end — in the question of what a coat could be if it carried nothing unnecessary. Asymmetric lapel. Unlined. Raw hem. Double-faced wool, 640gsm.

@@ -86,7 +86,7 @@ export function loadProducts(): Product[] {
   return [...uploaded, ...DEFAULT_PRODUCTS.filter(p => !seen.has(p.id))]
 }
 
-export const formatPrice = (n: number) => '$' + n.toLocaleString('en-US')
+export const formatPrice = (n: number) => '₵' + n.toLocaleString('en-US')
 
 export function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'piece'
