@@ -19,9 +19,6 @@ export default function SiteHeader({ active }: { active?: 'shop' | 'cart' }) {
         <button onClick={() => navigate('/shop')} className="font-mono-dm" style={link(active === 'shop')}
           onMouseEnter={e => (e.currentTarget.style.color = '#f0ece4')}
           onMouseLeave={e => (e.currentTarget.style.color = active === 'shop' ? '#f0ece4' : 'rgba(240,236,228,0.5)')}>Shop</button>
-        <button onClick={() => navigate('/login')} className="font-mono-dm" style={link(false)}
-          onMouseEnter={e => (e.currentTarget.style.color = '#f0ece4')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,236,228,0.5)')}>Sign In</button>
         <button onClick={() => navigate('/cart')} className="font-mono-dm"
           style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: active === 'cart' ? '#060606' : '#f0ece4', background: active === 'cart' ? '#f0ece4' : 'none', border: '1px solid rgba(240,236,228,0.18)', padding: '9px 18px', cursor: 'pointer', transition: 'all 0.25s' }}>
           Bag ({count})
