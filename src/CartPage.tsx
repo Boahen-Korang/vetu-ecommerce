@@ -91,10 +91,10 @@ export default function Cart() {
                 style={{ width: '100%', boxSizing: 'border-box', fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#f0ece4', background: 'rgba(240,236,228,0.04)', border: '1px solid rgba(240,236,228,0.14)', padding: '12px 14px', outline: 'none', marginBottom: 18 }} />
               <button onClick={checkout} disabled={busy} className="font-mono-dm"
                 style={{ width: '100%', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#060606', background: '#f0ece4', border: 'none', padding: 16, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
-                {busy ? 'Redirecting…' : 'Pay with Korapay'}
+                {busy ? 'Redirecting…' : 'Pay'}
               </button>
               {err && <p className="font-mono-dm" style={{ fontSize: 11.5, color: '#cf6b52', margin: '14px 0 0', lineHeight: 1.5 }}>{err}</p>}
-              <p style={{ fontSize: 10, color: 'rgba(240,236,228,0.3)', textAlign: 'center', margin: '16px 0 0', letterSpacing: '0.06em' }}>Secure payment via Korapay</p>
+              <p style={{ fontSize: 10, color: 'rgba(240,236,228,0.3)', textAlign: 'center', margin: '16px 0 0', letterSpacing: '0.06em' }}>Secure payment</p>
             </aside>
           </div>
         )}
