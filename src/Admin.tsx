@@ -374,7 +374,12 @@ function GatewaySettings() {
     setCustom(list => list.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
 
   const save = () => {
-    setSaving(true); setMsg(''); setErr('')
+    setMsg(''); setErr('')
+    if (custom.some(c => !cid(c) && (c.publicKey.trim() || c.secretKey.trim()))) {
+      setErr('Give every gateway a name before saving.')
+      return
+    }
+    setSaving(true)
     const customGateways = custom.filter(c => cid(c)).map(c => ({
       id: cid(c), label: c.label, publicKey: c.publicKey, currency: c.currency, subunits: c.subunits,
       authHeader: c.authHeader, authPrefix: c.authPrefix, initUrl: c.initUrl, bodyTemplate: c.bodyTemplate,
