@@ -24,22 +24,8 @@ export type Filter = (typeof CATEGORIES)[number]
 
 const STORAGE_KEY = 'vetu_products'
 
-const img = (id: string) =>
-  `https://images.unsplash.com/photo-${id}?w=700&h=900&fit=crop&auto=format&q=90`
-
-const OUTER_SIZES = ['XS', 'S', 'M', 'L', 'XL']
-const DRESS_SIZES = ['XS', 'S', 'M', 'L']
-
-export const DEFAULT_PRODUCTS: Product[] = [
-  { id: 'overcoat', name: 'The Overcoat', subtitle: 'Obsidian', price: 1240, category: 'Outerwear', tag: 'OUTERWEAR', img: img('1539109136881-3be0616acf4b'), alt: 'Model in long obsidian overcoat, architectural silhouette', sizes: OUTER_SIZES },
-  { id: 'archive-coat', name: 'The Archive Coat', subtitle: 'Camel', price: 880, category: 'Outerwear', tag: 'OUTERWEAR', img: img('1496747611176-843222e1e57c'), alt: 'The Archive Coat — asymmetric lapel, raw hem', sizes: OUTER_SIZES },
-  { id: 'cashmere-coat', name: 'The Travelling Coat', subtitle: 'Stone', price: 1090, category: 'Outerwear', tag: 'OUTERWEAR', img: img('1509631179647-0177331693ae'), alt: 'Model in cashmere coat on a deserted road', sizes: OUTER_SIZES },
-  { id: 'cashmere-crew', name: 'The Cashmere Crew', subtitle: 'Oat', price: 320, category: 'Knitwear', tag: 'KNITWEAR', img: img('1434389677669-e08b4cac3105'), alt: 'Soft oat cashmere crew-neck knit', sizes: OUTER_SIZES },
-  { id: 'ribbed-knit', name: 'The Ribbed Knit', subtitle: 'Charcoal', price: 280, category: 'Knitwear', tag: 'KNITWEAR', img: img('1487222477894-8943e31ef7b2'), alt: 'Monochromatic ribbed knitwear, close texture', sizes: OUTER_SIZES },
-  { id: 'tailored-blazer', name: 'The Tailored Blazer', subtitle: 'Charcoal', price: 890, category: 'Tailoring', tag: 'TAILORING', img: img('1550614000-4895a10e1bfd'), alt: 'Sharply tailored charcoal blazer editorial', sizes: OUTER_SIZES },
-  { id: 'editorial-suit', name: 'The Editorial Suit', subtitle: 'Ink', price: 760, category: 'Tailoring', tag: 'TAILORING', img: img('1558769132-cb1aea458c5e'), alt: 'Model in structured editorial suit', sizes: OUTER_SIZES },
-  { id: 'column-dress', name: 'The Column Dress', subtitle: 'Ivory', price: 680, category: 'Dresses', tag: 'EVENINGWEAR', img: img('1515886657613-9f3515b0c78f'), alt: 'Model in minimal ivory column dress', sizes: DRESS_SIZES },
-]
+// No demo/seed products — the catalog is whatever the admin uploads.
+export const DEFAULT_PRODUCTS: Product[] = []
 
 function isProduct(x: unknown): x is Product {
   const p = x as Product
