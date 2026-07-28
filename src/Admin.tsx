@@ -316,18 +316,41 @@ function Orders() {
 }
 
 // ─── Settings: payment gateway manager ───────────────────────────────────────
+type CustomGw = {
+  id: string; label: string; configured?: boolean; last4?: string; secretKey: string
+  currency: string; subunits: boolean; authHeader: string; authPrefix: string
+  initUrl: string; bodyTemplate: string; checkoutUrlPath: string
+  verifyUrl: string; verifyStatusPath: string; verifySuccessValue: string
+}
 type PublicConfig = {
   active: string
   supported: string[]
   labels: Record<string, string>
   gateways: Record<string, { configured: boolean; last4: string; currency: string }>
+  custom: Omit<CustomGw, 'secretKey'>[]
 }
+
+const gwSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24)
+const NEW_TEMPLATE = `{
+  "amount": {{amount}},
+  "currency": "{{currency}}",
+  "reference": "{{reference}}",
+  "customer": { "email": "{{email}}" },
+  "redirect_url": "{{redirect_url}}"
+}`
+const blankCustom = (): CustomGw => ({
+  id: '', label: '', secretKey: '', currency: 'NGN', subunits: false,
+  authHeader: 'Authorization', authPrefix: 'Bearer ', initUrl: '', bodyTemplate: NEW_TEMPLATE,
+  checkoutUrlPath: 'data.checkout_url', verifyUrl: '', verifyStatusPath: 'data.status', verifySuccessValue: 'success',
+})
+const cid = (c: CustomGw) => c.id || gwSlug(c.label)
 
 function GatewaySettings() {
   const [cfg, setCfg] = useState<PublicConfig | null>(null)
   const [active, setActive] = useState('')
   const [keys, setKeys] = useState<Record<string, string>>({})
   const [currencies, setCurrencies] = useState<Record<string, string>>({})
+  const [custom, setCustom] = useState<CustomGw[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -346,11 +369,15 @@ function GatewaySettings() {
         const cur: Record<string, string> = {}
         c.supported.forEach(g => { cur[g] = c.gateways[g].currency })
         setCurrencies(cur); setKeys({})
+        setCustom((c.custom || []).map(x => ({ ...x, secretKey: '' })))
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false))
   }
   useEffect(load, [])
+
+  const patchCustom = (i: number, patch: Partial<CustomGw>) =>
+    setCustom(list => list.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
 
   const save = () => {
     if (!cfg) return
@@ -360,17 +387,27 @@ function GatewaySettings() {
       gateways[g] = { currency: currencies[g] }
       if (keys[g]?.trim()) gateways[g].secretKey = keys[g].trim()
     })
+    const customGateways = custom.filter(c => cid(c)).map(c => ({
+      id: cid(c), label: c.label, currency: c.currency, subunits: c.subunits,
+      authHeader: c.authHeader, authPrefix: c.authPrefix, initUrl: c.initUrl, bodyTemplate: c.bodyTemplate,
+      checkoutUrlPath: c.checkoutUrlPath, verifyUrl: c.verifyUrl, verifyStatusPath: c.verifyStatusPath,
+      verifySuccessValue: c.verifySuccessValue, ...(c.secretKey.trim() ? { secretKey: c.secretKey.trim() } : {}),
+    }))
     fetch('/api/admin/gateways', {
       method: 'POST',
       headers: { 'x-admin-passcode': adminPasscode(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active, gateways }),
+      body: JSON.stringify({ active, gateways, customGateways }),
     })
       .then(async r => {
         if (r.status === 401) throw new Error('The server rejected the admin passcode (set ADMIN_PASSCODE on the server).')
         if (!r.ok) throw new Error('Could not save gateway settings.')
         return r.json()
       })
-      .then((c: PublicConfig) => { setCfg(c); setKeys({}); setMsg('Saved. Changes take effect immediately.') })
+      .then((c: PublicConfig) => {
+        setCfg(c); setActive(c.active); setKeys({})
+        setCustom((c.custom || []).map(x => ({ ...x, secretKey: '' })))
+        setMsg('Saved. Changes take effect immediately.')
+      })
       .catch(e => setErr(e.message))
       .finally(() => setSaving(false))
   }
@@ -378,38 +415,95 @@ function GatewaySettings() {
   if (loading) return <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.5)' }}>Loading gateways…</p>
   if (!cfg) return <p className="font-mono-dm" style={{ fontSize: 12, color: '#cf6b52', lineHeight: 1.6 }}>{err || 'Could not load gateways.'}</p>
 
+  const radio = (on: boolean, onSel: () => void) => (
+    <input type="radio" name="active-gateway" checked={on} onChange={onSel} style={{ accentColor: GOLD, cursor: 'pointer' }} />
+  )
+  const cField = (label: string, value: string, on: (v: string) => void, ph = '', type = 'text') => (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <input type={type} value={value} onChange={e => on(e.target.value)} placeholder={ph} style={inputStyle} />
+    </div>
+  )
+
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 620 }}>
+      {/* Built-in gateways */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {cfg.supported.map(g => {
           const info = cfg.gateways[g]
-          const isActive = active === g
+          const on = active === g
           return (
-            <div key={g} style={{ ...panel, border: `1px solid ${isActive ? 'rgba(201,185,154,0.4)' : 'rgba(240,236,228,0.09)'}` }}>
+            <div key={g} style={{ ...panel, border: `1px solid ${on ? 'rgba(201,185,154,0.4)' : 'rgba(240,236,228,0.09)'}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                  <input type="radio" name="active-gateway" checked={isActive} onChange={() => setActive(g)} style={{ accentColor: GOLD, cursor: 'pointer' }} />
+                  {radio(on, () => setActive(g))}
                   <span className="font-display" style={{ fontSize: 18, fontWeight: 600, color: '#f0ece4' }}>{cfg.labels[g] || g}</span>
-                  {isActive && <span className="font-mono-dm" style={{ fontSize: 8.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#060606', background: GOLD, padding: '3px 7px' }}>Active</span>}
+                  {on && <span className="font-mono-dm" style={{ fontSize: 8.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#060606', background: GOLD, padding: '3px 7px' }}>Active</span>}
                 </label>
                 <span className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.1em', color: info.configured ? '#7fae7f' : 'rgba(240,236,228,0.35)' }}>
                   {info.configured ? `configured ••••${info.last4}` : 'not set'}
                 </span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Secret key</label>
-                  <input type="password" value={keys[g] ?? ''} onChange={e => setKeys(k => ({ ...k, [g]: e.target.value }))}
-                    placeholder={info.configured ? 'leave blank to keep current' : `sk_… (${cfg.labels[g] || g} secret key)`} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Currency</label>
-                  <input value={currencies[g] ?? ''} onChange={e => setCurrencies(c => ({ ...c, [g]: e.target.value }))} placeholder="NGN" style={inputStyle} />
-                </div>
+                {cField('Secret key', keys[g] ?? '', v => setKeys(k => ({ ...k, [g]: v })), info.configured ? 'leave blank to keep current' : `sk_… (${cfg.labels[g] || g})`, 'password')}
+                {cField('Currency', currencies[g] ?? '', v => setCurrencies(c => ({ ...c, [g]: v })), 'NGN')}
               </div>
             </div>
           )
         })}
+      </div>
+
+      {/* Custom gateways */}
+      <div style={{ marginTop: 30, paddingTop: 24, borderTop: '1px solid rgba(240,236,228,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+          <p style={{ ...kicker, margin: 0 }}>— Custom / other gateways</p>
+          <button onClick={() => setCustom(l => [...l, blankCustom()])} style={ghostBtn}>+ Add gateway</button>
+        </div>
+        <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.02em', color: 'rgba(240,236,228,0.4)', lineHeight: 1.7, margin: '0 0 18px' }}>
+          Define any hosted-checkout provider. In the body template use placeholders:
+          <span style={{ color: GOLD }}> {'{{amount}} {{currency}} {{email}} {{reference}} {{redirect_url}} {{summary}}'}</span>.
+          Use <span style={{ color: GOLD }}>{'{{reference}}'}</span> in the verify URL.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {custom.map((c, i) => {
+            const id = cid(c)
+            const on = !!id && active === id
+            return (
+              <div key={i} style={{ ...panel, border: `1px solid ${on ? 'rgba(201,185,154,0.4)' : 'rgba(240,236,228,0.09)'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                  {radio(on, () => id && setActive(id))}
+                  <input value={c.label} onChange={e => patchCustom(i, { label: e.target.value })} placeholder="Gateway name"
+                    className="font-display" style={{ flex: 1, minWidth: 120, fontSize: 17, fontWeight: 600, color: '#f0ece4', background: 'none', border: 'none', borderBottom: '1px solid rgba(240,236,228,0.14)', outline: 'none', padding: '4px 0' }} />
+                  {c.configured && <span className="font-mono-dm" style={{ fontSize: 10, color: '#7fae7f' }}>••••{c.last4}</span>}
+                  <button onClick={() => setCustom(l => l.filter((_, idx) => idx !== i))} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.45)', background: 'none', border: '1px solid rgba(240,236,228,0.14)', padding: '7px 11px', cursor: 'pointer' }}>Remove</button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  {cField('Secret key', c.secretKey, v => patchCustom(i, { secretKey: v }), c.configured ? 'leave blank to keep' : 'secret key', 'password')}
+                  {cField('Currency', c.currency, v => patchCustom(i, { currency: v }), 'NGN')}
+                  {cField('Initialize URL', c.initUrl, v => patchCustom(i, { initUrl: v }), 'https://api.provider.com/charges')}
+                  {cField('Checkout-URL path', c.checkoutUrlPath, v => patchCustom(i, { checkoutUrlPath: v }), 'data.checkout_url')}
+                  {cField('Verify URL', c.verifyUrl, v => patchCustom(i, { verifyUrl: v }), 'https://api.provider.com/charges/{{reference}}')}
+                  {cField('Verify status path', c.verifyStatusPath, v => patchCustom(i, { verifyStatusPath: v }), 'data.status')}
+                  {cField('Success value', c.verifySuccessValue, v => patchCustom(i, { verifySuccessValue: v }), 'success')}
+                  {cField('Auth header', c.authHeader, v => patchCustom(i, { authHeader: v }), 'Authorization')}
+                  {cField('Auth prefix', c.authPrefix, v => patchCustom(i, { authPrefix: v }), 'Bearer ')}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'end', paddingBottom: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={c.subunits} onChange={e => patchCustom(i, { subunits: e.target.checked })} style={{ accentColor: GOLD, cursor: 'pointer' }} />
+                    <span className="font-mono-dm" style={{ fontSize: 11, color: 'rgba(240,236,228,0.6)' }}>Amount in subunits (×100)</span>
+                  </label>
+                </div>
+                <label style={labelStyle}>Request body template (JSON)</label>
+                <textarea value={c.bodyTemplate} onChange={e => patchCustom(i, { bodyTemplate: e.target.value })} spellCheck={false}
+                  style={{ ...inputStyle, width: '100%', minHeight: 120, fontFamily: "'DM Mono',monospace", fontSize: 11.5, lineHeight: 1.5, resize: 'vertical' }} />
+              </div>
+            )
+          })}
+          {custom.length === 0 && (
+            <p className="font-mono-dm" style={{ fontSize: 11, color: 'rgba(240,236,228,0.35)' }}>No custom gateways yet.</p>
+          )}
+        </div>
       </div>
 
       {err && <p className="font-mono-dm" style={{ fontSize: 12, color: '#cf6b52', margin: '18px 0 0', lineHeight: 1.6 }}>{err}</p>}
