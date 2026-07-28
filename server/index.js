@@ -26,6 +26,7 @@ const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || process.env.VITE_ADMIN_PASS
 const COWRIE_WEBHOOK_SECRET = process.env.COWRIE_WEBHOOK_SECRET || ''
 
 const app = express()
+app.set('trust proxy', true) // Render terminates TLS upstream — trust X-Forwarded-Proto so req.protocol is https
 // Capture the raw body so webhook signatures can be verified.
 app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 

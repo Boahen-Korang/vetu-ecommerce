@@ -312,21 +312,21 @@ function Orders() {
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  useEffect(() => { fetchOrders().then(setOrders) }, [])
-  const sync = () => {
-    setBusy(true); setMsg('')
+  const sync = (auto = false) => {
+    setBusy(true); if (!auto) setMsg('')
     fetch('/api/admin/reconcile', { method: 'POST', headers: { 'x-admin-passcode': adminPasscode() } })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error())))
-      .then(d => { setMsg(`Checked ${d.checked} pending — ${d.paid} now paid${d.failed ? `, ${d.failed} failed` : ''}.`); return fetchOrders().then(setOrders) })
-      .catch(() => setMsg('Sync failed.'))
+      .then(d => { if (!auto || d.paid || d.failed) setMsg(`Checked ${d.checked} pending — ${d.paid} now paid${d.failed ? `, ${d.failed} failed` : ''}.`); return fetchOrders().then(setOrders) })
+      .catch(() => { if (!auto) setMsg('Sync failed.') })
       .finally(() => setBusy(false))
   }
+  useEffect(() => { fetchOrders().then(setOrders); sync(true) }, [])
   return (
     <div>
       <p style={kicker}>— Sales</p>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={sectionTitle}>Orders <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({orders.length})</span></h1>
-        <button onClick={sync} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.6 : 1 }}>{busy ? 'Syncing…' : 'Sync pending payments'}</button>
+        <button onClick={() => sync()} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.6 : 1 }}>{busy ? 'Syncing…' : 'Sync pending payments'}</button>
       </div>
       <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 20px' }}>
         Orders update to &ldquo;paid&rdquo; automatically once payment is verified. If one is stuck on pending (customer paid but didn&rsquo;t return), click &ldquo;Sync pending payments&rdquo;.
