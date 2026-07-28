@@ -200,9 +200,14 @@ function Nav({ scrollY }: { scrollY: number }) {
       borderBottom: past ? '1px solid rgba(240,236,228,0.05)' : 'none',
       transition: 'background 0.5s, backdrop-filter 0.5s, border-color 0.5s',
     }}>
-      <span className="font-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.25em', color: '#f0ece4', cursor: 'default', userSelect: 'none' }}>
+      <button
+        data-cursor="Home"
+        onClick={() => { if (window.location.pathname === '/') window.scrollTo({ top: 0, behavior: 'smooth' }); else navigate('/') }}
+        className="font-display"
+        style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.25em', color: '#f0ece4', background: 'none', border: 'none', padding: 0, cursor: 'pointer', userSelect: 'none' }}
+      >
         VÊTU
-      </span>
+      </button>
       {!compact && (
         <div style={{ display: 'flex', gap: 40 }}>
           {['Collections', 'Lookbook', 'Stores', 'About'].map(l => (
