@@ -150,18 +150,21 @@ function ProductForm({ editing, onDone, onCancel }: { editing: Product | null; o
 // ─── Orders data (from the server / database) ────────────────────────────────
 type DeliveryInfo = { name?: string; phone?: string; address?: string; city?: string; region?: string; lat?: number | null; lng?: number | null; mapAddress?: string }
 type AdminOrder = Order & { delivery?: DeliveryInfo | null }
+type RawOrder = { reference: string; email: string; items?: Order['items']; amount: number | string; created_at: number; status: Order['status']; delivery?: DeliveryInfo | null }
 
+const mapServerOrder = (o: RawOrder): AdminOrder => ({
+  reference: o.reference, email: o.email || '', items: o.items || [],
+  amount: Number(o.amount) || 0, createdAt: Number(o.created_at) || 0, status: o.status, delivery: o.delivery || null,
+})
+function fetchOrders(): Promise<AdminOrder[]> {
+  return fetch('/api/admin/orders', { headers: { 'x-admin-passcode': adminPasscode() } })
+    .then(r => (r.ok ? r.json() : { orders: [] }))
+    .then(d => (d.orders || []).map(mapServerOrder))
+    .catch(() => [] as AdminOrder[])
+}
 function useServerOrders(): AdminOrder[] {
   const [orders, setOrders] = useState<AdminOrder[]>([])
-  useEffect(() => {
-    fetch('/api/admin/orders', { headers: { 'x-admin-passcode': adminPasscode() } })
-      .then(r => (r.ok ? r.json() : { orders: [] }))
-      .then(d => setOrders((d.orders || []).map((o: { reference: string; email: string; items?: Order['items']; amount: number | string; created_at: number; status: Order['status']; delivery?: DeliveryInfo | null }) => ({
-        reference: o.reference, email: o.email || '', items: o.items || [],
-        amount: Number(o.amount) || 0, createdAt: Number(o.created_at) || 0, status: o.status, delivery: o.delivery || null,
-      }))))
-      .catch(() => setOrders([]))
-  }, [])
+  useEffect(() => { fetchOrders().then(setOrders) }, [])
   return orders
 }
 
@@ -306,14 +309,29 @@ function StatusBadge({ status }: { status: Order['status'] }) {
 }
 
 function Orders() {
-  const orders = useServerOrders()
+  const [orders, setOrders] = useState<AdminOrder[]>([])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  useEffect(() => { fetchOrders().then(setOrders) }, [])
+  const sync = () => {
+    setBusy(true); setMsg('')
+    fetch('/api/admin/reconcile', { method: 'POST', headers: { 'x-admin-passcode': adminPasscode() } })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error())))
+      .then(d => { setMsg(`Checked ${d.checked} pending — ${d.paid} now paid${d.failed ? `, ${d.failed} failed` : ''}.`); return fetchOrders().then(setOrders) })
+      .catch(() => setMsg('Sync failed.'))
+      .finally(() => setBusy(false))
+  }
   return (
     <div>
       <p style={kicker}>— Sales</p>
-      <h1 style={sectionTitle}>Orders <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({orders.length})</span></h1>
-      <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 28px' }}>
-        Orders are stored in the database — every customer&rsquo;s order appears here and updates to &ldquo;paid&rdquo; once payment is verified.
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+        <h1 style={sectionTitle}>Orders <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({orders.length})</span></h1>
+        <button onClick={sync} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.6 : 1 }}>{busy ? 'Syncing…' : 'Sync pending payments'}</button>
+      </div>
+      <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 20px' }}>
+        Orders update to &ldquo;paid&rdquo; automatically once payment is verified. If one is stuck on pending (customer paid but didn&rsquo;t return), click &ldquo;Sync pending payments&rdquo;.
       </p>
+      {msg && <p className="font-mono-dm" style={{ fontSize: 12, color: '#7fae7f', margin: '0 0 20px' }}>{msg}</p>}
       <div style={panel}>
         {orders.length === 0
           ? <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.4)', padding: '20px 0' }}>No orders yet.</p>

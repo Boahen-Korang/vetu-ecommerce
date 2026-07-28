@@ -162,6 +162,22 @@ app.get('/api/admin/customers', requireAdmin, async (_req, res) => {
   try { res.json({ users: await allUsers() }) }
   catch (e) { console.error('customers error:', e); res.status(500).json({ error: 'Could not load customers.' }) }
 })
+// Re-check every pending order against the gateway and update it (fixes orders
+// where payment succeeded but the customer never returned to /checkout/success).
+app.post('/api/admin/reconcile', requireAdmin, async (_req, res) => {
+  try {
+    const pending = (await allOrders()).filter(o => o.status === 'pending')
+    let paid = 0, failed = 0
+    for (const o of pending) {
+      const s = await verifyCharge(o.reference)
+      if (s === 'success') { await setOrderStatus(o.reference, 'paid'); paid++ }
+      else if (s === 'failed') { await setOrderStatus(o.reference, 'failed'); failed++ }
+    }
+    res.json({ checked: pending.length, paid, failed })
+  } catch (e) {
+    console.error('reconcile error:', e); res.status(500).json({ error: 'Could not sync payments.' })
+  }
+})
 
 // ── Static assets + SPA fallback ──
 app.use(express.static(dist))
