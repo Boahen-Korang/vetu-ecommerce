@@ -25,12 +25,12 @@ services:
         sync: false
       # Which gateway is active for checkout (korapay | paystack | flutterwave | stripe).
       - key: ACTIVE_GATEWAY
-        sync: false
-      # Optional: seed gateway keys via env (the admin UI can also set them at runtime).
+        value: korapay
+      # Only the SECRET key must be set in the dashboard (kept out of git).
       - key: KORAPAY_SECRET_KEY
         sync: false
       - key: KORAPAY_CURRENCY
-        sync: false
+        value: NGN
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: PAYSTACK_CURRENCY
