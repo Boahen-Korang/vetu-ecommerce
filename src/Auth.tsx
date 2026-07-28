@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from 'react'
 import { navigate } from './router'
+import { login, register } from './session'
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 const PAPER = '#f0ece4'
@@ -78,6 +79,7 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState('')
   const [resetMsg, setResetMsg] = useState('')
+  const [authErr, setAuthErr] = useState('')
 
   // login state
   const [lEmail, setLEmail] = useState('')
@@ -118,8 +120,6 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
     return () => ro.disconnect()
   }, [])
 
-  // After a brief pause, send the authenticated customer to the shop.
-  const finish = () => { setTimeout(() => navigate('/shop'), 1100) }
   const touch = (setter: typeof setLTouched, f: string) => () => setter(t => ({ ...t, [f]: true }))
 
   const lShow = (f: string) => lTouched[f] || lSub
@@ -133,15 +133,25 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
   const sTermsErr = sSub && !sTerms ? 'Please accept the terms to continue' : ''
 
   const submitLogin = () => {
-    setLSub(true)
-    if (!vEmail(lEmail) && !vPw(lPw)) { setLoading(true); setResetMsg(''); finish() }
+    setLSub(true); setAuthErr('')
+    if (!vEmail(lEmail) && !vPw(lPw)) {
+      setLoading(true); setResetMsg('')
+      login(lEmail.trim(), lPw)
+        .then(() => navigate('/shop'))
+        .catch(e => { setAuthErr(e.message); setLoading(false) })
+    }
   }
   const submitSignup = () => {
-    setSSub(true)
+    setSSub(true); setAuthErr('')
     const ok = sName.trim() && !vEmail(sEmail) && !vPw(sPw) && sCpw === sPw && sCpw && sTerms
-    if (ok) { setLoading(true); finish() }
+    if (ok) {
+      setLoading(true)
+      register(sName.trim(), sEmail.trim(), sPw)
+        .then(() => navigate('/shop'))
+        .catch(e => { setAuthErr(e.message); setLoading(false) })
+    }
   }
-  const googleSignIn = () => { setLoading(true); finish() }
+  const googleSignIn = () => { setAuthErr('Google sign-in isn’t set up — please use your email.') }
   const forgotPw = (e: React.MouseEvent) => {
     e.preventDefault()
     setResetMsg(vEmail(lEmail) === ''
@@ -227,6 +237,7 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
                 <button onClick={submitLogin} disabled={loading} style={primaryStyle} {...primaryHover}>
                   {loading ? <><Spinner />Signing in…</> : 'Sign in'}
                 </button>
+                {authErr && <p style={{ fontSize: 12.5, color: ERR, textAlign: 'center', margin: '10px 0 0' }}>{authErr}</p>}
                 <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(240,236,228,0.5)', margin: '18px 0 0' }}>
                   New here? <a onClick={() => go('signup')} style={linkStyle}>Create an account</a>
                 </p>
@@ -283,6 +294,7 @@ export default function Auth({ initial = 'login' }: { initial?: 'login' | 'signu
                 <button onClick={submitSignup} disabled={loading} style={{ ...primaryStyle, marginTop: 2 }} {...primaryHover}>
                   {loading ? <><Spinner />Creating account…</> : 'Create account'}
                 </button>
+                {authErr && <p style={{ fontSize: 12.5, color: ERR, textAlign: 'center', margin: '10px 0 0' }}>{authErr}</p>}
                 <p style={{ textAlign: 'center', fontSize: 13.5, color: 'rgba(240,236,228,0.5)', margin: '18px 0 0' }}>
                   Already have an account? <a onClick={() => go('login')} style={linkStyle}>Sign in</a>
                 </p>

@@ -4,7 +4,7 @@ import {
   loadProducts, loadUploaded, addProduct, removeProduct, formatPrice, slugify,
   type Product, type Category,
 } from './products'
-import { loadOrders, type Order } from './orders'
+import { type Order } from './orders'
 import { isAdminAuthed, adminLogin, adminLogout, adminPasscode } from './adminAuth'
 import { useMediaQuery } from './useMediaQuery'
 
@@ -147,6 +147,21 @@ function ProductForm({ editing, onDone, onCancel }: { editing: Product | null; o
   )
 }
 
+// ─── Orders data (from the server / database) ────────────────────────────────
+function useServerOrders(): Order[] {
+  const [orders, setOrders] = useState<Order[]>([])
+  useEffect(() => {
+    fetch('/api/admin/orders', { headers: { 'x-admin-passcode': adminPasscode() } })
+      .then(r => (r.ok ? r.json() : { orders: [] }))
+      .then(d => setOrders((d.orders || []).map((o: { reference: string; email: string; items?: Order['items']; amount: number | string; created_at: number; status: Order['status'] }) => ({
+        reference: o.reference, email: o.email || '', items: o.items || [],
+        amount: Number(o.amount) || 0, createdAt: Number(o.created_at) || 0, status: o.status,
+      }))))
+      .catch(() => setOrders([]))
+  }, [])
+  return orders
+}
+
 // ─── Overview ────────────────────────────────────────────────────────────────
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -161,7 +176,7 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
 function Overview({ go }: { go: (s: Section) => void }) {
   const products = loadProducts()
   const uploaded = loadUploaded()
-  const orders = loadOrders()
+  const orders = useServerOrders()
   const paid = orders.filter(o => o.status === 'paid')
   const revenue = paid.reduce((s, o) => s + o.amount, 0)
   const catalogValue = products.reduce((s, p) => s + p.price, 0)
@@ -286,14 +301,13 @@ function StatusBadge({ status }: { status: Order['status'] }) {
 }
 
 function Orders() {
-  const [orders, setOrders] = useState<Order[]>(() => loadOrders())
-  useEffect(() => { setOrders(loadOrders()) }, [])
+  const orders = useServerOrders()
   return (
     <div>
       <p style={kicker}>— Sales</p>
       <h1 style={sectionTitle}>Orders <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.4)', letterSpacing: '0.1em' }}>({orders.length})</span></h1>
       <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 28px' }}>
-        Orders are stored in this browser. Orders placed by customers on other devices won&rsquo;t appear here — that needs a backend (Korapay webhook → database).
+        Orders are stored in the database — every customer&rsquo;s order appears here and updates to &ldquo;paid&rdquo; once payment is verified.
       </p>
       <div style={panel}>
         {orders.length === 0

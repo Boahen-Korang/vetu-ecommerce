@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { navigate } from './router'
 import { useMediaQuery } from './useMediaQuery'
+import { useUser, logout } from './session'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -188,6 +189,7 @@ function Intro({ onDone }: { onDone: () => void }) {
 function Nav({ scrollY }: { scrollY: number }) {
   const past = scrollY > 80
   const compact = useMediaQuery('(max-width: 820px)')
+  const user = useUser()
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 500,
@@ -213,14 +215,15 @@ function Nav({ scrollY }: { scrollY: number }) {
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 18 : 28 }}>
         <button
-          data-cursor="Enter"
-          onClick={() => navigate('/login')}
+          data-cursor={user ? 'Sign out' : 'Enter'}
+          onClick={() => (user ? logout() : navigate('/login'))}
           className="font-mono-dm"
+          title={user ? user.email : undefined}
           style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.3s', padding: 0 }}
           onMouseEnter={e => (e.currentTarget.style.color = '#f0ece4')}
           onMouseLeave={e => (e.currentTarget.style.color = 'rgba(240,236,228,0.5)')}
         >
-          Sign In
+          {user ? `${(user.name || 'Account').split(' ')[0]} · Sign out` : 'Sign In'}
         </button>
         <button
           data-cursor="Shop"

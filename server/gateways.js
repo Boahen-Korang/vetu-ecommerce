@@ -4,13 +4,7 @@
 // (init URL, auth, a JSON body template with {{placeholders}}, and response
 // paths for the checkout URL + verification). Keys live ONLY here (server-side).
 
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data')
-const FILE = path.join(DATA_DIR, 'gateways.json')
+import { getSetting, setSetting } from './db.js'
 
 const slug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24)
 
@@ -37,9 +31,8 @@ function normalizeCustom(c, existing) {
   }
 }
 
-export function loadConfig() {
-  let saved = {}
-  try { saved = JSON.parse(fs.readFileSync(FILE, 'utf8')) } catch { /* no file yet */ }
+export async function loadConfig() {
+  const saved = (await getSetting('gateways')) || {}
   const customGateways = Array.isArray(saved.customGateways)
     ? saved.customGateways.map(c => normalizeCustom(c)).filter(Boolean) : []
   const ids = new Set(customGateways.map(c => c.id))
@@ -48,8 +41,8 @@ export function loadConfig() {
   return { active, customGateways }
 }
 
-export function saveConfig(update) {
-  const cur = loadConfig()
+export async function saveConfig(update) {
+  const cur = await loadConfig()
   let customGateways = cur.customGateways
   if (Array.isArray(update?.customGateways)) {
     customGateways = update.customGateways.map(c => normalizeCustom(c, cur.customGateways)).filter(Boolean)
@@ -59,14 +52,13 @@ export function saveConfig(update) {
   if (update?.active && ids.has(update.active)) active = update.active
   if (!ids.has(active)) active = customGateways[0]?.id || ''
 
-  fs.mkdirSync(DATA_DIR, { recursive: true })
-  fs.writeFileSync(FILE, JSON.stringify({ active, customGateways }, null, 2))
+  await setSetting('gateways', { active, customGateways })
   return publicConfig()
 }
 
 /** Browser-safe view — secret keys are masked; public keys are shown in full. */
-export function publicConfig() {
-  const cfg = loadConfig()
+export async function publicConfig() {
+  const cfg = await loadConfig()
   return {
     active: cfg.active,
     custom: cfg.customGateways.map(c => ({
@@ -79,8 +71,8 @@ export function publicConfig() {
   }
 }
 
-export function activeStatus() {
-  const cfg = loadConfig()
+export async function activeStatus() {
+  const cfg = await loadConfig()
   const def = cfg.customGateways.find(c => c.id === cfg.active)
   return def ? { provider: def.label || def.id, currency: def.currency || '', payments: !!def.secretKey }
     : { provider: '', currency: '', payments: false }
@@ -106,7 +98,7 @@ function fillTemplate(tpl, vars) {
 
 // ── create ──
 export async function createCharge({ items, email, origin }) {
-  const cfg = loadConfig()
+  const cfg = await loadConfig()
   const def = cfg.customGateways.find(c => c.id === cfg.active)
   if (!def) throw new Error('No payment gateway is configured. Add one in the admin dashboard.')
   if (!def.secretKey) throw new Error(`The active gateway (${def.label}) has no secret key.`)
@@ -139,7 +131,7 @@ export async function createCharge({ items, email, origin }) {
 export async function verifyCharge(reference) {
   if (typeof reference !== 'string' || !reference.startsWith('cgw_')) return 'unknown'
   const id = reference.split('_')[1]
-  const def = loadConfig().customGateways.find(c => c.id === id)
+  const def = (await loadConfig()).customGateways.find(c => c.id === id)
   if (!def?.secretKey || !def.verifyUrl || !def.verifyStatusPath) return 'unknown'
   try {
     const url = def.verifyUrl.replace(/\{\{reference\}\}/g, encodeURIComponent(reference))
