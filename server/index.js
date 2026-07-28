@@ -5,6 +5,7 @@
 // management is authorized by ADMIN_PASSCODE.
 
 import express from 'express'
+import crypto from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createCharge, verifyCharge, publicConfig, saveConfig, activeStatus } from './gateways.js'
@@ -22,9 +23,11 @@ try { process.loadEnvFile(path.join(__dirname, '..', '.env')) } catch { /* no .e
 
 const PORT = process.env.PORT || 3001
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || process.env.VITE_ADMIN_PASSCODE || 'vetu-admin'
+const COWRIE_WEBHOOK_SECRET = process.env.COWRIE_WEBHOOK_SECRET || ''
 
 const app = express()
-app.use(express.json({ limit: '1mb' }))
+// Capture the raw body so webhook signatures can be verified.
+app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 
 const emailOk = e => /^\S+@\S+\.\S+$/.test(e)
 const publicUser = u => ({ id: u.id, email: u.email, name: u.name || '' })
@@ -69,6 +72,32 @@ app.get('/api/verify', async (req, res) => {
     res.json({ status })
   } catch (e) {
     res.status(500).json({ status: 'unknown', error: e?.message })
+  }
+})
+
+// ── Payment webhook (server-to-server confirmation) ──
+// Cowrie POSTs { type: 'charge.success'|'charge.failed', data: charge } signed
+// with header cowrie-signature = HMAC_SHA256(rawBody, webhook_secret).
+app.post('/api/webhooks/cowrie', async (req, res) => {
+  try {
+    if (COWRIE_WEBHOOK_SECRET) {
+      const sig = String(req.headers['cowrie-signature'] || '')
+      const expected = crypto.createHmac('sha256', COWRIE_WEBHOOK_SECRET).update(req.rawBody || Buffer.from('')).digest('hex')
+      if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+        return res.status(401).json({ error: 'Invalid signature.' })
+      }
+    }
+    const type = req.body?.type
+    const charge = req.body?.data || {}
+    const reference = charge.reference
+    if (reference) {
+      if (type === 'charge.success' || charge.status === 'success') await setOrderStatus(reference, 'paid')
+      else if (type === 'charge.failed' || charge.status === 'failed') await setOrderStatus(reference, 'failed')
+    }
+    res.json({ received: true })
+  } catch (e) {
+    console.error('webhook error:', e)
+    res.status(200).json({ received: true }) // acknowledge so Cowrie doesn't retry-storm
   }
 })
 
