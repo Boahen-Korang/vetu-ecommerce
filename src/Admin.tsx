@@ -141,21 +141,24 @@ function ProductForm({ editing, onDone, onCancel }: { editing: Product | null; o
             : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.16em', color: 'rgba(240,236,228,0.25)', textTransform: 'uppercase' }}>No image</span></div>}
         </div>
         <h3 className="font-display" style={{ fontSize: 17, fontWeight: 600, color: '#f0ece4', margin: '12px 0 2px' }}>{name.trim() || 'Untitled'}</h3>
-        <p className="font-mono-dm" style={{ fontSize: 11, color: GOLD }}>{parseFloat(price) > 0 ? formatPrice(Math.round(parseFloat(price))) : '$0'}</p>
+        <p className="font-mono-dm" style={{ fontSize: 11, color: GOLD }}>{parseFloat(price) > 0 ? formatPrice(Math.round(parseFloat(price))) : '₵0'}</p>
       </div>
     </div>
   )
 }
 
 // ─── Orders data (from the server / database) ────────────────────────────────
-function useServerOrders(): Order[] {
-  const [orders, setOrders] = useState<Order[]>([])
+type DeliveryInfo = { name?: string; phone?: string; address?: string; city?: string; region?: string; lat?: number | null; lng?: number | null; mapAddress?: string }
+type AdminOrder = Order & { delivery?: DeliveryInfo | null }
+
+function useServerOrders(): AdminOrder[] {
+  const [orders, setOrders] = useState<AdminOrder[]>([])
   useEffect(() => {
     fetch('/api/admin/orders', { headers: { 'x-admin-passcode': adminPasscode() } })
       .then(r => (r.ok ? r.json() : { orders: [] }))
-      .then(d => setOrders((d.orders || []).map((o: { reference: string; email: string; items?: Order['items']; amount: number | string; created_at: number; status: Order['status'] }) => ({
+      .then(d => setOrders((d.orders || []).map((o: { reference: string; email: string; items?: Order['items']; amount: number | string; created_at: number; status: Order['status']; delivery?: DeliveryInfo | null }) => ({
         reference: o.reference, email: o.email || '', items: o.items || [],
-        amount: Number(o.amount) || 0, createdAt: Number(o.created_at) || 0, status: o.status,
+        amount: Number(o.amount) || 0, createdAt: Number(o.created_at) || 0, status: o.status, delivery: o.delivery || null,
       }))))
       .catch(() => setOrders([]))
   }, [])
@@ -319,6 +322,15 @@ function Orders() {
                 <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.4)', marginTop: 4 }}>
                   {new Date(o.createdAt).toLocaleDateString()} · {o.items.reduce((n, i) => n + i.qty, 0)} item(s) · {o.reference.slice(0, 16)}…
                 </p>
+                {o.delivery && (o.delivery.address || o.delivery.name) && (
+                  <p style={{ fontSize: 12, color: 'rgba(240,236,228,0.55)', marginTop: 8, lineHeight: 1.5 }}>
+                    🚚 <strong style={{ color: '#f0ece4' }}>{o.delivery.name}</strong>{o.delivery.phone ? ` · ${o.delivery.phone}` : ''}<br />
+                    {[o.delivery.address, o.delivery.city, o.delivery.region].filter(Boolean).join(', ')}
+                    {o.delivery.lat != null && o.delivery.lng != null && (
+                      <> · <a href={`https://www.google.com/maps?q=${o.delivery.lat},${o.delivery.lng}`} target="_blank" rel="noreferrer" style={{ color: '#d4af7a' }}>map ↗</a></>
+                    )}
+                  </p>
+                )}
               </div>
               <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(o.amount)}</span>
               <StatusBadge status={o.status} />

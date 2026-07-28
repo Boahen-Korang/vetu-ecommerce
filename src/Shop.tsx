@@ -14,10 +14,10 @@ type PriceBucket = 'any' | 'u300' | '300-600' | '600-1000' | 'o1000'
 
 const PRICE_BUCKETS: { id: PriceBucket; label: string; test: (n: number) => boolean }[] = [
   { id: 'any', label: 'Any price', test: () => true },
-  { id: 'u300', label: 'Under $300', test: n => n < 300 },
-  { id: '300-600', label: '$300 – $600', test: n => n >= 300 && n <= 600 },
-  { id: '600-1000', label: '$600 – $1,000', test: n => n > 600 && n <= 1000 },
-  { id: 'o1000', label: 'Over $1,000', test: n => n > 1000 },
+  { id: 'u300', label: 'Under ₵300', test: n => n < 300 },
+  { id: '300-600', label: '₵300 – ₵600', test: n => n >= 300 && n <= 600 },
+  { id: '600-1000', label: '₵600 – ₵1,000', test: n => n > 600 && n <= 1000 },
+  { id: 'o1000', label: 'Over ₵1,000', test: n => n > 1000 },
 ]
 
 // Deterministic pseudo rating/reviews from the product id (stable per product).

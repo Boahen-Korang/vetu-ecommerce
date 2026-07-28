@@ -75,12 +75,17 @@ export function useCart(): CartItem[] {
 }
 
 /** Initialize a Korapay charge on the backend and redirect to its checkout page. */
-export async function startCheckout(email: string): Promise<void> {
+export type Delivery = {
+  name: string; phone: string; address: string; city: string; region: string
+  lat: number | null; lng: number | null; mapAddress: string
+}
+
+export async function startCheckout(email: string, delivery?: Delivery): Promise<void> {
   if (!cache.length) throw new Error('Your bag is empty.')
   const res = await fetch('/api/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: cache, email }),
+    body: JSON.stringify({ items: cache, email, delivery }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Could not start checkout.')

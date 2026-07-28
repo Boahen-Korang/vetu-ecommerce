@@ -47,8 +47,9 @@ app.post('/api/checkout', async (req, res) => {
     const { url, reference } = await createCharge({ items, email, origin })
 
     const amount = items.reduce((s, i) => s + Number(i.price || 0) * Math.max(1, parseInt(i.qty, 10) || 1), 0)
+    const delivery = req.body?.delivery && typeof req.body.delivery === 'object' ? req.body.delivery : null
     const now = Date.now()
-    await upsertOrder({ reference, email, items, amount, currency: (await activeStatus()).currency, status: 'pending', created_at: now, updated_at: now })
+    await upsertOrder({ reference, email, items, amount, currency: (await activeStatus()).currency, status: 'pending', delivery, created_at: now, updated_at: now })
 
     res.json({ url, reference })
   } catch (e) {

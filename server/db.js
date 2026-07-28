@@ -24,7 +24,8 @@ export async function initDb() {
     password_hash text NOT NULL, created_at bigint)`)
   await pool.query(`CREATE TABLE IF NOT EXISTS orders (
     reference text PRIMARY KEY, email text, items jsonb, amount numeric,
-    currency text, status text, created_at bigint, updated_at bigint)`)
+    currency text, status text, delivery jsonb, created_at bigint, updated_at bigint)`)
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery jsonb`)
   console.log('DB: connected (Postgres)')
 }
 
@@ -80,10 +81,11 @@ export async function insertUser(u) {
 // ── orders ──
 export async function upsertOrder(o) {
   if (pool) {
-    await pool.query(`INSERT INTO orders(reference,email,items,amount,currency,status,created_at,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-      ON CONFLICT(reference) DO UPDATE SET status=$6, updated_at=$8`,
-      [o.reference, o.email, JSON.stringify(o.items || []), o.amount, o.currency, o.status, o.created_at, o.updated_at])
+    await pool.query(`INSERT INTO orders(reference,email,items,amount,currency,status,delivery,created_at,updated_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      ON CONFLICT(reference) DO UPDATE SET status=$6, updated_at=$9`,
+      [o.reference, o.email, JSON.stringify(o.items || []), o.amount, o.currency, o.status,
+       o.delivery ? JSON.stringify(o.delivery) : null, o.created_at, o.updated_at])
     return
   }
   const arr = readJson('orders.json', [])

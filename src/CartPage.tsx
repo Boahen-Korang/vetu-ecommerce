@@ -4,12 +4,19 @@ import { useCart, setQty, removeItem, startCheckout } from './cart'
 import { formatPrice } from './products'
 import { useMediaQuery } from './useMediaQuery'
 import SiteHeader from './SiteHeader'
+import LocationPicker, { type Loc } from './LocationPicker'
 
 export default function Cart() {
   const items = useCart()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [region, setRegion] = useState('')
+  const [loc, setLoc] = useState<Loc | null>(null)
   const stack = useMediaQuery('(max-width: 760px)')
 
   useEffect(() => {
@@ -22,13 +29,17 @@ export default function Cart() {
 
   const checkout = async () => {
     setErr('')
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-      setErr('Enter a valid email for your receipt.')
-      return
-    }
+    if (!name.trim()) { setErr('Enter your full name for delivery.'); return }
+    if (!/^\+?[0-9][0-9\s-]{6,}$/.test(phone.trim())) { setErr('Enter a valid phone number.'); return }
+    if (!address.trim()) { setErr('Enter your delivery address (or pin it on the map).'); return }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setErr('Enter a valid email for your receipt.'); return }
     setBusy(true)
     try {
-      await startCheckout(email.trim()) // navigates away on success
+      await startCheckout(email.trim(), {
+        name: name.trim(), phone: phone.trim(), address: address.trim(),
+        city: city.trim(), region: region.trim(),
+        lat: loc?.lat ?? null, lng: loc?.lng ?? null, mapAddress: loc?.address || '',
+      })
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Checkout failed.')
       setBusy(false)
@@ -36,6 +47,14 @@ export default function Cart() {
   }
 
   const stepBtn: React.CSSProperties = { width: 30, height: 30, fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#f0ece4', background: 'none', border: '1px solid rgba(240,236,228,0.14)', cursor: 'pointer' }
+  const fieldStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', fontFamily: "'DM Sans',sans-serif", fontSize: 14, color: '#f0ece4', background: 'rgba(240,236,228,0.04)', border: '1px solid rgba(240,236,228,0.14)', padding: '11px 13px', outline: 'none' }
+  const dLabel: React.CSSProperties = { display: 'block', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#c9b99a', marginBottom: 6 }
+  const F = (label: string, val: string, on: (v: string) => void, ph = '', full = false) => (
+    <div style={full ? { gridColumn: '1 / -1' } : undefined}>
+      <label style={dLabel}>{label}</label>
+      <input value={val} onChange={e => { on(e.target.value); if (err) setErr('') }} placeholder={ph} style={fieldStyle} />
+    </div>
+  )
 
   return (
     <div style={{ background: '#060606', minHeight: '100vh', color: '#f0ece4', cursor: 'auto' }}>
@@ -76,6 +95,21 @@ export default function Cart() {
                   </div>
                 </div>
               ))}
+
+              {/* Delivery details */}
+              <div style={{ marginTop: 44 }}>
+                <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.2em', color: '#c9b99a', textTransform: 'uppercase', marginBottom: 18 }}>Delivery details</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {F('Full name', name, setName, 'Jane Fuller', true)}
+                  {F('Phone', phone, setPhone, '024 000 0000')}
+                  {F('City / town', city, setCity, 'Accra')}
+                  {F('Address / area', address, setAddress, 'Street, house no., landmark', true)}
+                  {F('Region', region, setRegion, 'Greater Accra', true)}
+                </div>
+                <div style={{ marginTop: 20 }}>
+                  <LocationPicker value={loc} onChange={l => { setLoc(l); if (l.address) setAddress(a => a || l.address) }} />
+                </div>
+              </div>
             </div>
 
             {/* Summary */}
