@@ -1,9 +1,9 @@
 // ─── Product catalog ─────────────────────────────────────────────────────────
-// Single source of truth for items shown on the shop page. The customer-facing
-// catalog is the DEFAULT_PRODUCTS below MERGED with anything an admin/upload
-// flow has saved to localStorage under STORAGE_KEY — so uploaded clothes show
-// up for sale here without any backend. Swap loadProducts() for an API fetch
-// when a server is added.
+// Products live in the database (server), so an admin upload is visible to every
+// customer on every device. fetchProducts() reads the public catalog; the admin
+// mutations require the admin passcode.
+
+import { adminPasscode } from './adminAuth'
 
 export type Category = 'Outerwear' | 'Knitwear' | 'Tailoring' | 'Dresses'
 
@@ -22,58 +22,48 @@ export type Product = {
 export const CATEGORIES = ['All', 'Outerwear', 'Knitwear', 'Tailoring', 'Dresses'] as const
 export type Filter = (typeof CATEGORIES)[number]
 
-const STORAGE_KEY = 'vetu_products'
-
-// No demo/seed products — the catalog is whatever the admin uploads.
-export const DEFAULT_PRODUCTS: Product[] = []
-
-function isProduct(x: unknown): x is Product {
-  const p = x as Product
-  return !!p && typeof p.id === 'string' && typeof p.name === 'string' &&
-    typeof p.price === 'number' && typeof p.img === 'string'
-}
-
-/** Items an admin has uploaded (persisted to localStorage). */
-export function loadUploaded(): Product[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed.filter(isProduct)
-    }
-  } catch {
-    /* storage unavailable / malformed */
-  }
-  return []
-}
-
-function saveUploaded(list: Product[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
-}
-
-/** Add (or replace by id) an uploaded product. May throw on storage quota. */
-export function addProduct(p: Product) {
-  const list = loadUploaded().filter(x => x.id !== p.id)
-  saveUploaded([p, ...list])
-}
-
-/** Remove an uploaded product by id. */
-export function removeProduct(id: string) {
-  saveUploaded(loadUploaded().filter(p => p.id !== id))
-}
-
-/**
- * Customer-facing catalog: uploaded items first, then the default collection,
- * de-duplicated by id. Returns defaults if nothing was uploaded.
- */
-export function loadProducts(): Product[] {
-  const uploaded = loadUploaded()
-  const seen = new Set(uploaded.map(p => p.id))
-  return [...uploaded, ...DEFAULT_PRODUCTS.filter(p => !seen.has(p.id))]
-}
-
 export const formatPrice = (n: number) => '₵' + n.toLocaleString('en-US')
 
 export function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'piece'
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function normalize(p: any): Product {
+  return {
+    id: String(p.id), name: String(p.name || ''), subtitle: String(p.subtitle || ''),
+    price: Number(p.price) || 0, category: p.category, tag: String(p.tag || ''),
+    img: String(p.img || ''), alt: String(p.alt || ''), sizes: Array.isArray(p.sizes) ? p.sizes : [],
+  }
+}
+
+/** Public catalog — every customer sees the same products. */
+export async function fetchProducts(): Promise<Product[]> {
+  try {
+    const r = await fetch('/api/products')
+    if (!r.ok) return []
+    const d = await r.json()
+    return Array.isArray(d.products) ? d.products.map(normalize) : []
+  } catch {
+    return []
+  }
+}
+
+/** Add or update a product (admin). */
+export async function createProduct(p: Product): Promise<void> {
+  const r = await fetch('/api/admin/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-passcode': adminPasscode() },
+    body: JSON.stringify(p),
+  })
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Could not save product.')
+}
+
+/** Delete a product (admin). */
+export async function deleteProduct(id: string): Promise<void> {
+  const r = await fetch('/api/admin/products/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'x-admin-passcode': adminPasscode() },
+  })
+  if (!r.ok) throw new Error('Could not delete product.')
 }

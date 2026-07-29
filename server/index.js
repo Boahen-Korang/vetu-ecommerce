@@ -13,6 +13,7 @@ import {
   initDb, hasDb,
   userByEmail, userById, insertUser, hashPassword, verifyPassword, makeToken, readToken, genId,
   upsertOrder, setOrderStatus, allOrders, allUsers,
+  allProducts, upsertProduct, deleteProductDb,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -28,7 +29,7 @@ const COWRIE_WEBHOOK_SECRET = process.env.COWRIE_WEBHOOK_SECRET || ''
 const app = express()
 app.set('trust proxy', true) // Render terminates TLS upstream — trust X-Forwarded-Proto so req.protocol is https
 // Capture the raw body so webhook signatures can be verified.
-app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
+app.use(express.json({ limit: '4mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 
 const emailOk = e => /^\S+@\S+\.\S+$/.test(e)
 const publicUser = u => ({ id: u.id, email: u.email, name: u.name || '' })
@@ -100,6 +101,28 @@ app.post('/api/webhooks/cowrie', async (req, res) => {
     console.error('webhook error:', e)
     res.status(200).json({ received: true }) // acknowledge so Cowrie doesn't retry-storm
   }
+})
+
+// ── Products (public catalog + admin management) ──
+app.get('/api/products', async (_req, res) => {
+  try { res.json({ products: await allProducts() }) }
+  catch (e) { console.error('products error:', e); res.status(500).json({ error: 'Could not load products.' }) }
+})
+app.post('/api/admin/products', requireAdmin, async (req, res) => {
+  try {
+    const p = req.body || {}
+    if (!p.id || !p.name || !(Number(p.price) > 0)) return res.status(400).json({ error: 'A product needs a name and a price.' })
+    await upsertProduct({
+      id: String(p.id), name: String(p.name), subtitle: String(p.subtitle || ''),
+      price: Math.round(Number(p.price)), category: String(p.category || ''), tag: String(p.tag || ''),
+      img: String(p.img || ''), alt: String(p.alt || p.name), sizes: Array.isArray(p.sizes) ? p.sizes : [], created_at: Date.now(),
+    })
+    res.json({ ok: true })
+  } catch (e) { console.error('save product error:', e); res.status(500).json({ error: 'Could not save product.' }) }
+})
+app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
+  try { await deleteProductDb(req.params.id); res.json({ ok: true }) }
+  catch (e) { console.error('delete product error:', e); res.status(500).json({ error: 'Could not delete product.' }) }
 })
 
 // ── Customer accounts ──

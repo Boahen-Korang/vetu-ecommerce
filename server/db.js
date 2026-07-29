@@ -26,6 +26,9 @@ export async function initDb() {
     reference text PRIMARY KEY, email text, items jsonb, amount numeric,
     currency text, status text, delivery jsonb, created_at bigint, updated_at bigint)`)
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery jsonb`)
+  await pool.query(`CREATE TABLE IF NOT EXISTS products (
+    id text PRIMARY KEY, name text, subtitle text, price numeric, category text,
+    tag text, img text, alt text, sizes jsonb, created_at bigint)`)
   console.log('DB: connected (Postgres)')
 }
 
@@ -108,6 +111,32 @@ export async function allOrders() {
     return r.rows.map(o => ({ ...o, amount: Number(o.amount) }))
   }
   return readJson('orders.json', []).slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+}
+
+// ── products ──
+export async function allProducts() {
+  if (pool) {
+    const r = await pool.query('SELECT * FROM products ORDER BY created_at DESC')
+    return r.rows.map(p => ({ id: p.id, name: p.name, subtitle: p.subtitle, price: Number(p.price), category: p.category, tag: p.tag, img: p.img, alt: p.alt, sizes: Array.isArray(p.sizes) ? p.sizes : [] }))
+  }
+  return readJson('products.json', [])
+}
+export async function upsertProduct(p) {
+  if (pool) {
+    await pool.query(`INSERT INTO products(id,name,subtitle,price,category,tag,img,alt,sizes,created_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      ON CONFLICT(id) DO UPDATE SET name=$2,subtitle=$3,price=$4,category=$5,tag=$6,img=$7,alt=$8,sizes=$9`,
+      [p.id, p.name, p.subtitle, p.price, p.category, p.tag, p.img, p.alt, JSON.stringify(p.sizes || []), p.created_at || Date.now()])
+    return
+  }
+  const arr = readJson('products.json', [])
+  const i = arr.findIndex(x => x.id === p.id)
+  if (i >= 0) arr[i] = p; else arr.unshift(p)
+  writeJson('products.json', arr)
+}
+export async function deleteProductDb(id) {
+  if (pool) { await pool.query('DELETE FROM products WHERE id=$1', [id]); return }
+  writeJson('products.json', readJson('products.json', []).filter(p => p.id !== id))
 }
 
 export async function allUsers() {

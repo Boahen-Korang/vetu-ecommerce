@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { navigate } from './router'
-import { loadProducts, formatPrice, CATEGORIES, type Filter, type Product } from './products'
+import { fetchProducts, formatPrice, CATEGORIES, type Filter, type Product } from './products'
 import { addToCart } from './cart'
 import { useMediaQuery } from './useMediaQuery'
 import SiteHeader from './SiteHeader'
@@ -75,7 +75,8 @@ function ProductCard({ product, added, onAdd }: { product: Product; added: boole
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function Shop() {
-  const products = useMemo(() => loadProducts(), [])
+  const [products, setProducts] = useState<Product[]>([])
+  useEffect(() => { fetchProducts().then(setProducts) }, [])
   const initialFilter = useMemo<Filter>(() => {
     const q = new URLSearchParams(window.location.search).get('category')
     return (CATEGORIES as readonly string[]).includes(q || '') ? (q as Filter) : 'All'

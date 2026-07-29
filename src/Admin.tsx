@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, type CSSProperties } from 'react'
 import { navigate } from './router'
 import {
-  loadProducts, loadUploaded, addProduct, removeProduct, formatPrice, slugify,
+  fetchProducts, createProduct, deleteProduct, formatPrice, slugify,
   type Product, type Category,
 } from './products'
 import { type Order } from './orders'
@@ -90,8 +90,7 @@ function ProductForm({ editing, onDone, onCancel }: { editing: Product | null; o
       category, tag: (tag.trim() || category).toUpperCase(), img: image, alt: name.trim(),
       sizes: ALL_SIZES.filter(s => sizes.includes(s)),
     }
-    try { addProduct(product); onDone() }
-    catch { setError('Storage is full — remove some uploaded pieces or use smaller images.') }
+    createProduct(product).then(onDone).catch(e => setError(e instanceof Error ? e.message : 'Could not save product.'))
   }
 
   return (
@@ -180,8 +179,8 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
 }
 
 function Overview({ go }: { go: (s: Section) => void }) {
-  const products = loadProducts()
-  const uploaded = loadUploaded()
+  const [products, setProducts] = useState<Product[]>([])
+  useEffect(() => { fetchProducts().then(setProducts) }, [])
   const orders = useServerOrders()
   const members = useServerCustomers()
   const paid = orders.filter(o => o.status === 'paid')
@@ -194,7 +193,7 @@ function Overview({ go }: { go: (s: Section) => void }) {
       <p style={kicker}>— Dashboard</p>
       <h1 style={sectionTitle}>Overview</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,180px),1fr))', gap: 16, margin: '32px 0' }}>
-        <StatTile label="Products" value={String(products.length)} sub={`${uploaded.length} uploaded · ${products.length - uploaded.length} default`} />
+        <StatTile label="Products" value={String(products.length)} />
         <StatTile label="Members" value={String(members.length)} />
         <StatTile label="Paid orders" value={String(paid.length)} sub={`${orders.length} total`} />
         <StatTile label="Revenue (paid)" value={formatPrice(revenue)} />
@@ -235,14 +234,14 @@ function Overview({ go }: { go: (s: Section) => void }) {
 
 // ─── Products ────────────────────────────────────────────────────────────────
 function Products() {
-  const [products, setProducts] = useState<Product[]>(() => loadProducts())
-  const [uploadedIds, setUploadedIds] = useState<Set<string>>(() => new Set(loadUploaded().map(p => p.id)))
+  const [products, setProducts] = useState<Product[]>([])
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<'All' | Category>('All')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
 
-  const refresh = () => { setProducts(loadProducts()); setUploadedIds(new Set(loadUploaded().map(p => p.id))) }
+  const refresh = () => { fetchProducts().then(setProducts) }
+  useEffect(() => { refresh() }, [])
   const visible = useMemo(() => products.filter(p =>
     (cat === 'All' || p.category === cat) &&
     (p.name.toLowerCase().includes(q.toLowerCase()) || p.subtitle.toLowerCase().includes(q.toLowerCase()))
@@ -272,30 +271,22 @@ function Products() {
       <div style={panel}>
         {visible.length === 0
           ? <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.4)', padding: '20px 0' }}>No products match.</p>
-          : visible.map(p => {
-            const up = uploadedIds.has(p.id)
-            return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderBottom: '1px solid rgba(240,236,228,0.06)', flexWrap: 'wrap' }}>
-                <img src={p.img} alt={p.alt} style={{ width: 44, height: 56, objectFit: 'cover', background: '#0e0e0e', flex: 'none' }} />
-                <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-                  <p className="font-display" style={{ fontSize: 16, fontWeight: 600, color: '#f0ece4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
-                  <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase', marginTop: 3 }}>{p.category} · {p.subtitle}</p>
-                </div>
-                <span className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: up ? GOLD : 'rgba(240,236,228,0.35)', border: `1px solid ${up ? 'rgba(201,185,154,0.4)' : 'rgba(240,236,228,0.14)'}`, padding: '4px 8px' }}>{up ? 'Uploaded' : 'Default'}</span>
-                <span className="font-mono-dm" style={{ fontSize: 12, color: '#f0ece4', minWidth: 64, textAlign: 'right' }}>{formatPrice(p.price)}</span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {up ? (
-                    <>
-                      <button onClick={() => startEdit(p)} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.7)', background: 'none', border: '1px solid rgba(240,236,228,0.16)', padding: '7px 12px', cursor: 'pointer' }}>Edit</button>
-                      <button onClick={() => { removeProduct(p.id); refresh() }} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', background: 'none', border: '1px solid rgba(240,236,228,0.14)', padding: '7px 12px', cursor: 'pointer' }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#cf6b52'; e.currentTarget.style.borderColor = 'rgba(207,107,82,0.5)' }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(240,236,228,0.5)'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.14)' }}>Remove</button>
-                    </>
-                  ) : <span className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.25)' }}>read-only</span>}
-                </div>
+          : visible.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderBottom: '1px solid rgba(240,236,228,0.06)', flexWrap: 'wrap' }}>
+              <img src={p.img} alt={p.alt} style={{ width: 44, height: 56, objectFit: 'cover', background: '#0e0e0e', flex: 'none' }} />
+              <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                <p className="font-display" style={{ fontSize: 16, fontWeight: 600, color: '#f0ece4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</p>
+                <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'rgba(240,236,228,0.4)', textTransform: 'uppercase', marginTop: 3 }}>{p.category} · {p.subtitle}</p>
               </div>
-            )
-          })}
+              <span className="font-mono-dm" style={{ fontSize: 12, color: '#f0ece4', minWidth: 64, textAlign: 'right' }}>{formatPrice(p.price)}</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => startEdit(p)} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.7)', background: 'none', border: '1px solid rgba(240,236,228,0.16)', padding: '7px 12px', cursor: 'pointer' }}>Edit</button>
+                <button onClick={() => deleteProduct(p.id).then(refresh)} className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(240,236,228,0.5)', background: 'none', border: '1px solid rgba(240,236,228,0.14)', padding: '7px 12px', cursor: 'pointer' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#cf6b52'; e.currentTarget.style.borderColor = 'rgba(207,107,82,0.5)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'rgba(240,236,228,0.5)'; e.currentTarget.style.borderColor = 'rgba(240,236,228,0.14)' }}>Remove</button>
+              </div>
+            </div>
+          ))}
       </div>
     </div>
   )
