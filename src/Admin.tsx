@@ -299,25 +299,60 @@ function StatusBadge({ status }: { status: Order['status'] }) {
   return <span className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color, border: `1px solid ${color}55`, padding: '4px 8px' }}>{label}</span>
 }
 
-function OrderRow({ o }: { o: AdminOrder }) {
+type CustomerGroup = { email: string; name: string; orders: AdminOrder[]; paid: number; latest: number }
+
+function CustomerModal({ customer, onClose }: { customer: CustomerGroup; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(240,236,228,0.06)', flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-        <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.5)' }}>
-          {new Date(o.createdAt).toLocaleDateString()} · {o.items.reduce((n, i) => n + i.qty, 0)} item(s) · {o.reference.slice(0, 16)}…
-        </p>
-        {o.delivery && (o.delivery.address || o.delivery.name) && (
-          <p style={{ fontSize: 12, color: 'rgba(240,236,228,0.55)', marginTop: 8, lineHeight: 1.5 }}>
-            🚚 <strong style={{ color: '#f0ece4' }}>{o.delivery.name}</strong>{o.delivery.phone ? ` · ${o.delivery.phone}` : ''}<br />
-            {[o.delivery.address, o.delivery.city, o.delivery.region].filter(Boolean).join(', ')}
-            {o.delivery.lat != null && o.delivery.lng != null && (
-              <> · <a href={`https://www.google.com/maps?q=${o.delivery.lat},${o.delivery.lng}`} target="_blank" rel="noreferrer" style={{ color: '#d4af7a' }}>map ↗</a></>
-            )}
-          </p>
-        )}
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 'clamp(14px,5vh,60px) 14px', overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#0d0d0d', border: '1px solid rgba(240,236,228,0.14)', width: '100%', maxWidth: 620, boxShadow: '0 30px 90px rgba(0,0,0,0.6)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 24px', borderBottom: '1px solid rgba(240,236,228,0.1)', position: 'sticky', top: 0, background: '#0d0d0d' }}>
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(201,185,154,0.15)', color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono',monospace", fontSize: 15, flex: 'none' }}>{(customer.name || customer.email).charAt(0).toUpperCase()}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="font-display" style={{ fontSize: 20, fontWeight: 600, color: '#f0ece4' }}>{customer.name}</p>
+            <p className="font-mono-dm" style={{ fontSize: 11, letterSpacing: '0.05em', color: 'rgba(240,236,228,0.45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{customer.email} · {customer.orders.length} order{customer.orders.length > 1 ? 's' : ''}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ flex: 'none', width: 34, height: 34, fontSize: 16, color: 'rgba(240,236,228,0.6)', background: 'none', border: '1px solid rgba(240,236,228,0.14)', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ padding: 24 }}>
+          {customer.orders.map((o, oi) => (
+            <div key={o.reference} style={{ paddingTop: oi ? 24 : 0, marginTop: oi ? 24 : 0, borderTop: oi ? '1px solid rgba(240,236,228,0.08)' : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                <span className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.08em', color: 'rgba(240,236,228,0.45)', textTransform: 'uppercase' }}>{new Date(o.createdAt).toLocaleDateString()} · {o.reference.slice(0, 14)}…</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(o.amount)}</span>
+                  <StatusBadge status={o.status} />
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10, marginBottom: 16 }}>
+                {o.items.map((it, i) => (
+                  <div key={i}>
+                    <img src={it.img} alt={it.name} style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', background: '#161616', border: '1px solid rgba(240,236,228,0.08)' }} />
+                    <p className="font-mono-dm" style={{ fontSize: 9.5, color: '#f0ece4', marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</p>
+                    <p className="font-mono-dm" style={{ fontSize: 9, color: 'rgba(240,236,228,0.4)', marginTop: 2 }}>{it.size} · ×{it.qty}</p>
+                  </div>
+                ))}
+              </div>
+              {o.delivery && (o.delivery.address || o.delivery.name) ? (
+                <div style={{ background: 'rgba(240,236,228,0.03)', border: '1px solid rgba(240,236,228,0.08)', padding: '12px 14px' }}>
+                  <p className="font-mono-dm" style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: GOLD, marginBottom: 8 }}>Delivery</p>
+                  <p style={{ fontSize: 13, color: '#f0ece4' }}>🚚 {o.delivery.name}{o.delivery.phone ? ` · ${o.delivery.phone}` : ''}</p>
+                  <p style={{ fontSize: 12.5, color: 'rgba(240,236,228,0.6)', marginTop: 4, lineHeight: 1.5 }}>{[o.delivery.address, o.delivery.city, o.delivery.region].filter(Boolean).join(', ')}</p>
+                  {o.delivery.lat != null && o.delivery.lng != null && (
+                    <a href={`https://www.google.com/maps?q=${o.delivery.lat},${o.delivery.lng}`} target="_blank" rel="noreferrer" className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.06em', color: '#d4af7a', display: 'inline-block', marginTop: 8 }}>Open in Google Maps ↗</a>
+                  )}
+                </div>
+              ) : (
+                <p className="font-mono-dm" style={{ fontSize: 11, color: 'rgba(240,236,228,0.35)' }}>No delivery details captured.</p>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-      <span className="font-mono-dm" style={{ fontSize: 13, color: '#f0ece4' }}>{formatPrice(o.amount)}</span>
-      <StatusBadge status={o.status} />
     </div>
   )
 }
@@ -325,7 +360,7 @@ function OrderRow({ o }: { o: AdminOrder }) {
 function Orders() {
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const members = useServerCustomers()
-  const [open, setOpen] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const sync = (auto = false) => {
@@ -346,13 +381,14 @@ function Orders() {
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(o)
   }
-  const customers = [...groups.entries()].map(([email, os]) => ({
+  const customers: CustomerGroup[] = [...groups.entries()].map(([email, os]) => ({
     email,
     name: nameByEmail.get(email) || os.find(o => o.delivery?.name)?.delivery?.name || email,
     orders: os,
     paid: os.filter(o => o.status === 'paid').length,
     latest: Math.max(...os.map(o => o.createdAt || 0)),
   })).sort((a, b) => b.latest - a.latest)
+  const selectedCustomer = selected ? customers.find(c => c.email === selected) || null : null
 
   return (
     <div>
@@ -362,35 +398,27 @@ function Orders() {
         <button onClick={() => sync()} disabled={busy} style={{ ...ghostBtn, opacity: busy ? 0.6 : 1 }}>{busy ? 'Syncing…' : 'Sync pending payments'}</button>
       </div>
       <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'rgba(240,236,228,0.35)', lineHeight: 1.6, margin: '14px 0 20px' }}>
-        Click a customer to see their orders, delivery details and payment status. Paid status updates automatically.
+        Click a customer to open their orders — product photos, delivery details and payment status.
       </p>
       {msg && <p className="font-mono-dm" style={{ fontSize: 12, color: '#7fae7f', margin: '0 0 20px' }}>{msg}</p>}
       <div style={panel}>
         {customers.length === 0
           ? <p className="font-mono-dm" style={{ fontSize: 12, color: 'rgba(240,236,228,0.4)', padding: '20px 0' }}>No orders yet.</p>
-          : customers.map(c => {
-            const isOpen = open === c.email
-            return (
-              <div key={c.email} style={{ borderBottom: '1px solid rgba(240,236,228,0.06)' }}>
-                <button onClick={() => setOpen(isOpen ? null : c.email)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 0', textAlign: 'left' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(201,185,154,0.15)', color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono',monospace", fontSize: 13, flex: 'none' }}>{(c.name || c.email).charAt(0).toUpperCase()}</div>
-                  <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-                    <p className="font-display" style={{ fontSize: 16, fontWeight: 600, color: '#f0ece4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
-                    <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.4)', marginTop: 3 }}>{c.orders.length} order{c.orders.length > 1 ? 's' : ''} · {c.paid} paid</p>
-                  </div>
-                  <span className="font-mono-dm" style={{ fontSize: 13, color: 'rgba(240,236,228,0.5)', flex: 'none' }}>{isOpen ? '▾' : '▸'}</span>
-                </button>
-                {isOpen && (
-                  <div style={{ padding: '0 0 14px 50px' }}>
-                    <p className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.1em', color: 'rgba(240,236,228,0.4)', margin: '0 0 6px' }}>{c.email}</p>
-                    {c.orders.map(o => <OrderRow key={o.reference} o={o} />)}
-                  </div>
-                )}
+          : customers.map(c => (
+            <button key={c.email} onClick={() => setSelected(c.email)}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', borderBottom: '1px solid rgba(240,236,228,0.06)', cursor: 'pointer', padding: '14px 0', textAlign: 'left' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(240,236,228,0.03)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+              <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(201,185,154,0.15)', color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono',monospace", fontSize: 14, flex: 'none' }}>{(c.name || c.email).charAt(0).toUpperCase()}</div>
+              <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <p className="font-display" style={{ fontSize: 16, fontWeight: 600, color: '#f0ece4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
+                <p className="font-mono-dm" style={{ fontSize: 10.5, letterSpacing: '0.06em', color: 'rgba(240,236,228,0.4)', marginTop: 3 }}>{c.orders.length} order{c.orders.length > 1 ? 's' : ''} · {c.paid} paid</p>
               </div>
-            )
-          })}
+              <span className="font-mono-dm" style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: GOLD, flex: 'none' }}>View →</span>
+            </button>
+          ))}
       </div>
+      {selectedCustomer && <CustomerModal customer={selectedCustomer} onClose={() => setSelected(null)} />}
     </div>
   )
 }
