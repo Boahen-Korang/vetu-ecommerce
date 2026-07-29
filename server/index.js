@@ -5,6 +5,7 @@
 // management is authorized by ADMIN_PASSCODE.
 
 import express from 'express'
+import compression from 'compression'
 import crypto from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,6 +29,7 @@ const COWRIE_WEBHOOK_SECRET = process.env.COWRIE_WEBHOOK_SECRET || ''
 
 const app = express()
 app.set('trust proxy', true) // Render terminates TLS upstream — trust X-Forwarded-Proto so req.protocol is https
+app.use(compression()) // gzip responses (JS bundle, product JSON) — big transfer-size win
 // Capture the raw body so webhook signatures can be verified.
 app.use(express.json({ limit: '4mb', verify: (req, _res, buf) => { req.rawBody = buf } }))
 
@@ -204,8 +206,14 @@ app.post('/api/admin/reconcile', requireAdmin, async (_req, res) => {
 })
 
 // ── Static assets + SPA fallback ──
-app.use(express.static(dist))
-app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
+// Fingerprinted files under /assets never change for a given name → cache for a year.
+app.use('/assets', express.static(path.join(dist, 'assets'), { immutable: true, maxAge: '1y' }))
+app.use(express.static(dist)) // favicon, robots, etc.
+// index.html must stay fresh so a new deploy's asset hashes are picked up immediately.
+app.get('*', (_req, res) => {
+  res.set('Cache-Control', 'no-cache')
+  res.sendFile(path.join(dist, 'index.html'))
+})
 
 initDb()
   .catch(e => console.error('DB init failed (continuing with file store):', e.message))

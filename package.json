@@ -12,6 +12,7 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "express": "^4.21.2",
     "leaflet": "^1.9.4",
     "pg": "^8.13.1",
